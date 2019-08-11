@@ -7,11 +7,12 @@ Taxi rides analysis - code documentation
 Purpose of this project
 -----------------------
 
-As part of the UDACITY Data Scientist Nanodegree, I was asked to choose a dataset, choose three questions to answer to, and write a blog post to communicate my conclusions.
-I chose to work with a portion of the TLC Trip Record Data - the yellow taxi trips of 2018 (about 99 million rows). The fill dataset is available on the TLC Trip Record Data page (https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page).
+| As part of the UDACITY Data Scientist Nanodegree, I was asked to choose a dataset, choose three questions to answer to, and write a blog post to communicate my conclusions.
+| I chose to work with a portion of the TLC Trip Record Data - the yellow taxi trips of 2018 (about 99 million rows). The fill dataset is available on the TLC Trip Record Data page (https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page).
 
-I wanted to conduct my analysis from the point of view of an urban planner - where are people going, and what are the trends of the flow of passengers?
-I chose to look closer at the dataset in order to answer the following questions:
+| I wanted to conduct my analysis from the point of view of an urban planner - where are people going, and what are the trends of the flow of passengers?
+| I chose to look closer at the dataset in order to answer the following questions:
+
 - Can we see trends in the flow of passengers in 2018?
 - Is there a difference on holidays, hottest or coldest day of the year?
 - Is there a difference between weekdays and weekends?
@@ -19,6 +20,7 @@ I chose to look closer at the dataset in order to answer the following questions
 
 
 In this repository, you will find:
+
 - A Jupyter notebook (Taxi rides analysis) exposing the first approach I took, using static visualisations
 - A second Jupyter notebook (Taxi rides analysis II) with the second approach using a database and OpenCV to render animations
 - The few animations that were generated (using arguments provided in the second notebook)
@@ -29,6 +31,7 @@ In this repository, you will find:
 
 
 Note that two blog posts were written to expose the conclusions and the process of the analysis, and can be found here:
+
 - XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 - XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
@@ -38,12 +41,13 @@ Note that two blog posts were written to expose the conclusions and the process 
 Installation requisites
 -----------------------
 
-To document the code I used Jupyter notebook 6.0.0.
-The code is written in Python 3 (v3.6).
-The database's version is MariaDB (5.7.18). 
+| To document the code I used Jupyter notebook 6.0.0.
+| The code is written in Python 3 (v3.6).
+| The database's version is MariaDB (5.7.18). 
 
 
 The following libraries were used extensively in the code:
+
 - numpy 1.16.4
 - pandas 0.25.0
 - shapefile (pyshp) 2.1.0
@@ -51,6 +55,7 @@ The following libraries were used extensively in the code:
 - matplotlib 3.1.0
 - OpenCV 4.1.0
 - mysql-connector-python 8.0.16
+- cmapy 0.5
 
 
 
@@ -658,6 +663,8 @@ Further work and improvements
 
 Several paths could be followed to improve the code and the analysis, for example:
 - refactoring the code to use classes (OOP)
+- make the heat map function more flexible (choose which maps to render)
+- represent the variation over time withing one day
 - comparing the flow of passengers with the public transportation network, and try to find patterns
 - conduct the analysis on a larger dataset, including previous years, or other taxi types (green taxis, FHV)
 - observe other parameters than only the passenger count, for example the number of passenger per ride, the spread over time in a day,....

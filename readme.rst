@@ -378,6 +378,7 @@ Main script input
 
 **To render animations**
 
+This is the dictionary to pass as an input to the make_flow_animation function:
 
 ..code::python 
 
@@ -409,6 +410,8 @@ Arguments:
 
 
 **To render heat maps**
+
+This is the dictionary to pass as an input to the make_heat_map function:
 
 ..code::python 
 
@@ -509,81 +512,81 @@ Each function is documented below (purpose, input and output). Most functions ar
 
 **build_query_dict(render_animation_dict)**
 
-    This function builds the query dictionary that will be used to query the database.
-    Provided several arguments regarding the type of query we want to make, it generates
-    a new dictionary that can simply be injected as an argument to the prepare_sql_query
-    function. 
-    
-    The input of this function could look like the example below
+This function builds the query dictionary that will be used to query the database.
+Provided several arguments regarding the type of query we want to make, it generates
+a new dictionary that can simply be injected as an argument to the prepare_sql_query
+function. 
 
-    ..code::python
+The input of this function could look like the example below
 
-	    render_animation_dict = {'time_granularity':'period', 'period':['2018-01-01','2018-01-01'] ,
-	    						'weekdays':[0, 1, 2, 3, 4],'filter_query_on_borough':'Manhattan', 
-	    						'base_map':test_map,'map_type':'Manhattan', 'image_size':[1920, 1080],
-	    						'shape_dict':shape_boundaries, 'df_sf':df_sf, 
-	    						'database':'nyc_taxi_rides', 'data_table':'taxi_rides_2018', 
-	    						'lookup_table':'taxi_zone_lookup_table', 'aggregated_result':'avg'}
-	    						
-    ..code::python
+..code::python
+
+	render_animation_dict = {'time_granularity':'period', 'period':['2018-01-01','2018-01-01'] ,
+							'weekdays':[0, 1, 2, 3, 4],'filter_query_on_borough':'Manhattan', 
+							'base_map':test_map,'map_type':'Manhattan', 'image_size':[1920, 1080],
+							'shape_dict':shape_boundaries, 'df_sf':df_sf, 
+							'database':'nyc_taxi_rides', 'data_table':'taxi_rides_2018', 
+							'lookup_table':'taxi_zone_lookup_table', 'aggregated_result':'avg'}
+
+..code::python
 
 
-    Note that:
+Note that:
 
-    - time_granularity can have three different values : 'period', 'specific_weekdays'.
-    - if time_granularity is set to specific_weekdays, then 'weekdays' must have an array 
-    with the indexes of the days to query (0 = Monday, 1= Tuesday, ...).
-    - if time_granularity is set to period, then 'period' must have an array with start and
-    end date. If only a single date is to be queried, the period type should be used, 
-    inputting the same date as start date and end date (ex: ['2018-01-01','2018-01-01']).
-    - the filter_query_on_borough argument is used to filter the query on a specific
-    borough (independent from the map_type rendering constraint that will render only a 
-    single borough). It can be provided as False (i.e we don't want to filter the query on
-    a single borough), or with the name of the borough to filter the results on.
-    
-    Input: the dictionary providing all the details of the rendering we want to make,
-    including what data we want (i.e arguments to pass in the database query) and the
-    rendering specifications (unused in this function). 
-    
-    Output: the dictionary to pass as an argument to the function that generated the
-    formatted query input.
+- time_granularity can have three different values : 'period', 'specific_weekdays'.
+- if time_granularity is set to specific_weekdays, then 'weekdays' must have an array 
+with the indexes of the days to query (0 = Monday, 1= Tuesday, ...).
+- if time_granularity is set to period, then 'period' must have an array with start and
+end date. If only a single date is to be queried, the period type should be used, 
+inputting the same date as start date and end date (ex: ['2018-01-01','2018-01-01']).
+- the filter_query_on_borough argument is used to filter the query on a specific
+borough (independent from the map_type rendering constraint that will render only a 
+single borough). It can be provided as False (i.e we don't want to filter the query on
+a single borough), or with the name of the borough to filter the results on.
+
+Input: the dictionary providing all the details of the rendering we want to make,
+including what data we want (i.e arguments to pass in the database query) and the
+rendering specifications (unused in this function). 
+
+Output: the dictionary to pass as an argument to the function that generated the
+formatted query input.
 
 
 
 **calculate_boundaries(points)**
 
-    This function returns the coordinates of the max and min points of the boundaries
-    of a shape. 
-    It is used for a single shape (i.e. finding the extreme limits of a shape) as well
-    as for the entire map. 
+This function returns the coordinates of the max and min points of the boundaries
+of a shape. 
+It is used for a single shape (i.e. finding the extreme limits of a shape) as well
+as for the entire map. 
 
-    Input: list of tuples of coordinates of a shape, or list of all the max and min
-    sets of coordinates of all the shapes of the map. 
-    
-    Output: the coordinates of the most extreme points of the targeted area (shape or map)
+Input: list of tuples of coordinates of a shape, or list of all the max and min
+sets of coordinates of all the shapes of the map. 
+
+Output: the coordinates of the most extreme points of the targeted area (shape or map)
 
 
 **calculate_centroid(points)**
 
-    Given a list of tuples of coordinates this function calculates the mean on each axis.
-    This is used to obtain the center of a given shape, through the list of points of its
-    boundaries.
+Given a list of tuples of coordinates this function calculates the mean on each axis.
+This is used to obtain the center of a given shape, through the list of points of its
+boundaries.
 
-    Input: list of tuples of coordinates of a shape
-    
-    Output: the center coordinates of the shape
+Input: list of tuples of coordinates of a shape
+
+Output: the center coordinates of the shape
 
 
  **compute_color(weight, min_passenger, max_passenger)**
 
-    This function returns a BGR array associated with the color_index of a color palette.
-    The color_index is calculated using the weight we want to represent on the heat map (the
-    number of passengers between two zones, in a dynamic scale depending on the min and max
-    number of passengers traveling to and from a given zone for which we draw the maps.
+This function returns a BGR array associated with the color_index of a color palette.
+The color_index is calculated using the weight we want to represent on the heat map (the
+number of passengers between two zones, in a dynamic scale depending on the min and max
+number of passengers traveling to and from a given zone for which we draw the maps.
 
-    Input: the weight value, the min and max values of passengers
-    
-    Output: a BGR color array
+Input: the weight value, the min and max values of passengers
+
+Output: a BGR color array
 
 
 **compute_min_max_passengers(trips_list)**

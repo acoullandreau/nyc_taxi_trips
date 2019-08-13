@@ -250,10 +250,10 @@ The script finally calls the function in charge of **processing and rendering th
 .. code:: python
 
 	render_animation_dict = {'time_granularity':time_granularity, 'period':period,'weekdays':weekdays,'base_map':base_map,
-							'filter_query_on_borough':filter_query_on_borough,'projection':projection, 'map_type':map_type,
-							'image_size':image_size,'shape_dict':shape_boundaries, 'df_sf':df_sf,'database':database, 
-							'data_table':data_table, 'lookup_table':lookup_table,'aggregated_result':aggregated_result, 
-							'render_single_borough':render_single_borough,'video_title':title}
+	'filter_query_on_borough':filter_query_on_borough,'projection':projection, 'map_type':map_type,
+	'image_size':image_size,'shape_dict':shape_boundaries, 'df_sf':df_sf,'database':database, 
+	'data_table':data_table, 'lookup_table':lookup_table,'aggregated_result':aggregated_result, 
+	'render_single_borough':render_single_borough,'video_title':title}
 
 .. code:: python
 
@@ -264,11 +264,12 @@ This function (render_animation_query_output) is actually in charge of three thi
 - build one or more videos with all the frames rendered
 
 To build the query, the function (build_query_dict) is called, and is passed a dictionary as an argument.
+
 .. code:: python
 
- query_dict = {'data_table':'taxi_rides_2018', 'lookup_table':'taxi_zone_lookup_table', 
-              'aggregated_result':'avg', 'date':single_date, 
-              'specific_weekdays':'on_specific_weekdays', 'filter_query_on_borough':'Manhattan'}
+	query_dict = {'data_table':'taxi_rides_2018', 'lookup_table':'taxi_zone_lookup_table', 
+				'aggregated_result':'avg', 'date':single_date, 
+				'specific_weekdays':'on_specific_weekdays', 'filter_query_on_borough':'Manhattan'}
 
 .. code:: python
 
@@ -327,6 +328,7 @@ The logic is similar to the one of the animation rendering, though not exactly t
 | The script then calls the functions to **build the query, execute the query and process the results**. The output of these functions are also added to the render_heat_map_dict. 
 | Finally, the (render_heat_map_query_output) function is called twice, once for the incoming flow and once for the outgoing flow.
 
+
 This last function (render_heat_map_query_output) is provided a dictionary for each flow direction. This dictionary is built using the zone_id as a key, and a list of tuples as a value. The list of tuples contains the id of the zone 'linked' to the key zone id and the weight (number of passengers) of that link. So basically, in the incoming dictionary we have as a key the zone_idof the zones where people *go to*, and as a list the zone id of where they come from and how many people went. For example, for a given period, n passengers went to zone A coming from zone B, m passengers coming from zone C. The dictionary will look like this:
 
 .. code:: python
@@ -346,6 +348,7 @@ The function (render_heat_map_query_output) will loop through the keys of either
 - render the map borough focused
 
 The last two steps are performed using yet another function called (render_map), that also accepts a dictionary as an input:
+
 ..code::python
 
 	render_map_dict_borough = {'map_to_render':borough_name, 'zone_id': zone_id, 
@@ -373,7 +376,8 @@ Note that other support functions are used and not mentioned here but included i
 Main script input
 -----------------
 
-**To render animations:**
+**To render animations**
+
 
 ..code::python 
 
@@ -404,7 +408,7 @@ Arguments:
 - weekdays: the index of the weekday(s) we want data for (0 being Monday, 6 being Sunday). If we want to filter on one or more weekday, time_granularity should be set to 'on_specific_weekdays'. If we we do not want to filter on any weekday, time_granularity should be set to 'period' and the array of weekdays left empty [].
 
 
-**To render heat maps:**
+**To render heat maps**
 
 ..code::python 
 
@@ -456,6 +460,7 @@ Besides, as mentioned before we use the pick up date as a reference date to assi
 **Rendering choices for the animation rendering**
 
 Regarding the colour code used:
+
 - I chose a black background to illuminate the map and allow contrast to be more visible
 - I picked the viridis color palette. Although recommended for its smooth transitions that specifically applied to heat maps, I also used two colors to represent the dots in the animations.
 
@@ -464,6 +469,7 @@ Regarding the video parameters:
 - I chose to render 30 fps, to give time to see the animation at normal speed. But I could have gone for 60 to be able to record in slow motion using video editing afterwards
 
 Regarding the plot itself:
+
 - I chose to normalize the weight of the point based on the max number of passengers which means that from one day to another, although the biggest point will have the same size, it will not represent the same number of passengers (compromise to prevent having huge differences between the points, or squishing too much the scale by using a log.
 - What is represented is actually the flow of people from one zone to another, extrapolated to make the point move between its origin and its destination. I.e not an itinerary, not a time related position of people. Just an animation of the flow of people between one origin and one destination, averaged or counted per day. 
 
@@ -471,11 +477,13 @@ Regarding the plot itself:
 **Rendering choices for the heat map rendering**
 
 Regarding the colour code used:
+
 - To be consistent with the animation choiced, I chose a black background to illuminate the map and allow contrast to be more visible
 - However, I used another color palette, where darker (closer to the background color) means few people traveling and lighter means more people traveling. To plot the difference between weekdays and weekends, we use two different tones for positive and negative values, but the logic is the same.
 
 
 Regarding the plot itself:
+
 - There is no normalization of the weight, but a linear choice of color depending on the value. 
 - One map is dedicated to one zone, highlighted with a thicker outline.
 
@@ -507,6 +515,7 @@ Each function is documented below (purpose, input and output). Most functions ar
     function. 
     
     The input of this function could look like the example below
+
     ..code::python
 
 	    render_animation_dict = {'time_granularity':'period', 'period':['2018-01-01','2018-01-01'] ,
@@ -515,6 +524,7 @@ Each function is documented below (purpose, input and output). Most functions ar
 	    						'shape_dict':shape_boundaries, 'df_sf':df_sf, 
 	    						'database':'nyc_taxi_rides', 'data_table':'taxi_rides_2018', 
 	    						'lookup_table':'taxi_zone_lookup_table', 'aggregated_result':'avg'}
+	    						
     ..code::python
 
 

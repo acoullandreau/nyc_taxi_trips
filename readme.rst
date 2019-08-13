@@ -74,89 +74,108 @@ Database set up
 
 Here are the SQL queries used to load a csv file in which all the files of a single year were merged.
 
-| #Create a table with all columns and indexes
-|	CREATE TABLE taxi_rides_2017 (
-	|	id INT NOT NULL AUTO_INCREMENT FIRST,
-	|	VendorID INTEGER NOT NULL,
-	|	tpep_pickup_datetime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	|	tpep_dropoff_datetime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	|	pickup_date DATE NULL,
-	|	pickup_weekday INTEGER NOT NULL,
-	|	dropoff_date DATE NULL,
-	|	dropoff_weekday INTEGER NOT NULL,
-	|	passenger_count INTEGER NULL,
-	|	trip_distance FLOAT NULL,
-	|	RatecodeID INTEGER NOT NULL,
-	|	store_and_fwd_flag CHARACTER(1) NOT NULL,
-	|	PULocationID INTEGER NOT NULL,
-	|	DOLocationID INTEGER NOT NULL,
-	|	payment_type INTEGER NOT NULL,
-	|	fare_amount FLOAT NULL,
-	|	extra FLOAT NULL,
-	|	mta_tax FLOAT NULL,
-	|	tip_amount FLOAT NULL,
-	|	tolls_amount FLOAT NULL,
-	|	improvement_surcharge FLOAT NULL,
-	|	total_amount FLOAT NULL,
-	|	PRIMARY KEY (id),
-	|	INDEX pickup_date (pickup_date),
-	|	INDEX pickup_weekday (pickup_weekday),
-	|	INDEX dropoff_date (dropoff_date),
-	|	INDEX dropoff_weekday (dropoff_weekday),
-	|	FOREIGN KEY (PULocationID) REFERENCES taxi_zone_lookup_table(LocationID),
-	|	FOREIGN KEY (DOLocationID) REFERENCES taxi_zone_lookup_table(LocationID)
-	|	);
+.. code:: sql
 
-|#Load the data - merged file for a year
-|	LOAD DATA LOCAL INFILE '/Users/acoullandreau/Desktop/Taxi_rides_DS/2017/merged_2017.csv' 
-|	INTO TABLE taxi_rides_2017 
-|	FIELDS TERMINATED BY ',' 
-|	LINES TERMINATED BY '\r\n'
-|	IGNORE 1 ROWS#Ignore header
-|	(VendorID,tpep_pickup_datetime,tpep_dropoff_datetime, passenger_count, trip_distance, RatecodeID, store_and_fwd_flag, PULocationID,	DOLocationID, payment_type, fare_amount, extra, mta_tax, tip_amount, tolls_amount, improvement_surcharge, 	total_amount) 
-|	SET id=null,#sets ID to auto-increment
-|	pickup_date = DATE(tpep_pickup_datetime),
-|	pickup_weekday = WEEKDAY(tpep_pickup_datetime), 
-|	dropoff_date = DATE(tpep_dropoff_datetime), 
-|	dropoff_weekday = WEEKDAY(tpep_dropoff_datetime)
-	;
+ 	#Create a table with all columns and indexes
+		CREATE TABLE taxi_rides_2017 (
+			id INT NOT NULL AUTO_INCREMENT FIRST,
+			VendorID INTEGER NOT NULL,
+			tpep_pickup_datetime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			tpep_dropoff_datetime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			pickup_date DATE NULL,
+			pickup_weekday INTEGER NOT NULL,
+			dropoff_date DATE NULL,
+			dropoff_weekday INTEGER NOT NULL,
+			passenger_count INTEGER NULL,
+			trip_distance FLOAT NULL,
+			RatecodeID INTEGER NOT NULL,
+			store_and_fwd_flag CHARACTER(1) NOT NULL,
+			PULocationID INTEGER NOT NULL,
+			DOLocationID INTEGER NOT NULL,
+			payment_type INTEGER NOT NULL,
+			fare_amount FLOAT NULL,
+			extra FLOAT NULL,
+			mta_tax FLOAT NULL,
+			tip_amount FLOAT NULL,
+			tolls_amount FLOAT NULL,
+			improvement_surcharge FLOAT NULL,
+			total_amount FLOAT NULL,
+			PRIMARY KEY (id),
+			INDEX pickup_date (pickup_date),
+			INDEX pickup_weekday (pickup_weekday),
+			INDEX dropoff_date (dropoff_date),
+			INDEX dropoff_weekday (dropoff_weekday),
+			FOREIGN KEY (PULocationID) REFERENCES taxi_zone_lookup_table(LocationID),
+			FOREIGN KEY (DOLocationID) REFERENCES taxi_zone_lookup_table(LocationID)
+			);
 
-|#Clean up the data
-|	DELETE FROM nyc_taxi_rides.taxi_rides_2017 
-|	WHERE PULocationID IN (0, 264, 265) 
-|	OR DOLocationID IN (0, 264, 265) 
-|	OR passenger_count  = 0 
-|	OR tpep_pickup_datetime = 0 
-|	OR tpep_dropoff_datetime  = 0 
-|	OR fare_amount <0 
-|	OR extra<0 
-|	OR mta_tax<0 
-|	OR tip_amount<0 
-|	OR tolls_amount<0 
-|	OR improvement_surcharge<0;
+.. code:: sql
 
+.. code:: sql
+
+	#Load the data - merged file for a year
+		LOAD DATA LOCAL INFILE '/Users/acoullandreau/Desktop/Taxi_rides_DS/2017/merged_2017.csv' 
+		INTO TABLE taxi_rides_2017 
+		FIELDS TERMINATED BY ',' 
+		LINES TERMINATED BY '\r\n'
+		IGNORE 1 ROWS#Ignore header
+		(VendorID,tpep_pickup_datetime,tpep_dropoff_datetime, passenger_count, trip_distance, RatecodeID, store_and_fwd_flag, PULocationID,	DOLocationID, payment_type, fare_amount, extra, mta_tax, tip_amount, tolls_amount, improvement_surcharge, 	total_amount) 
+		SET id=null,#sets ID to auto-increment
+		pickup_date = DATE(tpep_pickup_datetime),
+		pickup_weekday = WEEKDAY(tpep_pickup_datetime), 
+		dropoff_date = DATE(tpep_dropoff_datetime), 
+		dropoff_weekday = WEEKDAY(tpep_dropoff_datetime)
+		;
+
+.. code:: sql
+
+.. code:: sql
+
+	#Clean up the data
+		DELETE FROM nyc_taxi_rides.taxi_rides_2017 
+		WHERE PULocationID IN (0, 264, 265) 
+		OR DOLocationID IN (0, 264, 265) 
+		OR passenger_count  = 0 
+		OR tpep_pickup_datetime = 0 
+		OR tpep_dropoff_datetime  = 0 
+		OR fare_amount <0 
+		OR extra<0 
+		OR mta_tax<0 
+		OR tip_amount<0 
+		OR tolls_amount<0 
+		OR improvement_surcharge<0;
+
+.. code:: sql
 
 
 For the rendering of the heat maps, we chose to create another table in the database, with preprocessed results. As a matter of fact, the query to compute the difference of the average on a given period between the weekdays and weekends numbers of passengers was going to be pushy. In order to speed up calculation time, we create another table in the database, called passenger_count_2018, that contains for each day and each link (grouped from origin PULocationID to destination DOLocationID) the total number of passengers.
 
-|CREATE TABLE passenger_count_2018 (
-|	id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-|	pickup_date DATE NULL,
-|    pickup_weekday INTEGER NOT NULL,
-|    passenger_count_per_day FLOAT NULL,
-|	PULocationID INTEGER NOT NULL,
-|	DOLocationID INTEGER NOT NULL,
-|	INDEX pickup_date (pickup_date),
-|	INDEX pickup_weekday (pickup_weekday),
-|	FOREIGN KEY (PULocationID) REFERENCES taxi_zone_lookup_table(LocationID),
-|	FOREIGN KEY (DOLocationID) REFERENCES taxi_zone_lookup_table(LocationID)
-|	);
+.. code:: sql
 
-| INSERT INTO passenger_count_2018 (pickup_date, pickup_weekday, passenger_count_per_day, PULocationID, DOLocationID) 
-| SELECT pickup_date, pickup_weekday, COUNT(passenger_count), PULocationID, DOLocationID
-| FROM taxi_rides_2018
-| WHERE pickup_date BETWEEN '2018-01-01 00:00:00' AND '2018-12-31 23:59:59'
-| GROUP BY PULocationID, DOLocationID, pickup_date, pickup_weekday;
+	CREATE TABLE passenger_count_2018 (
+		id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+		pickup_date DATE NULL,
+	    pickup_weekday INTEGER NOT NULL,
+	    passenger_count_per_day FLOAT NULL,
+		PULocationID INTEGER NOT NULL,
+		DOLocationID INTEGER NOT NULL,
+		INDEX pickup_date (pickup_date),
+		INDEX pickup_weekday (pickup_weekday),
+		FOREIGN KEY (PULocationID) REFERENCES taxi_zone_lookup_table(LocationID),
+		FOREIGN KEY (DOLocationID) REFERENCES taxi_zone_lookup_table(LocationID)
+		);
+
+.. code:: sql
+
+.. code:: sql
+
+	 INSERT INTO passenger_count_2018 (pickup_date, pickup_weekday, passenger_count_per_day, PULocationID, DOLocationID) 
+	 SELECT pickup_date, pickup_weekday, COUNT(passenger_count), PULocationID, DOLocationID
+	 FROM taxi_rides_2018
+	 WHERE pickup_date BETWEEN '2018-01-01 00:00:00' AND '2018-12-31 23:59:59'
+	 GROUP BY PULocationID, DOLocationID, pickup_date, pickup_weekday;
+
+.. code:: sql
 
 
 |As for the query associated with the computation of the difference between weekdays and weekends, here is a focus on the logic. 
@@ -174,35 +193,38 @@ If needed, we add a statement to join the lookup table in order to filter per bo
 
 Here is the query:
 
-|SELECT wd_pu_id pu_id, wd_do_id do_id, wd_aggregated_result - we_aggregated_result diff
-|FROM(SELECT CASE WHEN wd_pu_id IS NULL THEN we_pu_id ELSE wd_pu_id END AS wd_pu_id, 
-|				CASE WHEN wd_do_id IS NULL THEN we_do_id ELSE wd_do_id END AS wd_do_id,
-|				CASE WHEN wd_aggregated_result IS NULL THEN 0 ELSE wd_aggregated_result END AS wd_aggregated_result,
-|				CASE WHEN we_pu_id IS NULL THEN wd_pu_id ELSE we_pu_id END AS we_pu_id, 
-|				CASE WHEN we_do_id IS NULL THEN wd_do_id ELSE we_do_id END AS we_do_id,
-|				CASE WHEN we_aggregated_result IS NULL THEN 0 ELSE we_aggregated_result END AS we_aggregated_result
-|FROM (SELECT *
-|	FROM (SELECT PULocationID wd_pu_id, DOLocationID wd_do_id, COUNT(passenger_count_per_day) wd_aggregated_result
-|			FROM passenger_count_2018
-|			WHERE pickup_date BETWEEN '2018-01-01' AND '2018-01-07' AND pickup_weekday IN (0, 1, 2, 3, 4) 
-|			GROUP BY wd_pu_id, wd_do_id) as weekdays
-|	LEFT JOIN (SELECT PULocationID we_pu_id, DOLocationID we_do_id, COUNT(passenger_count_per_day) we_aggregated_result
-|			FROM passenger_count_2018
-|			WHERE pickup_date BETWEEN '2018-01-01' AND '2018-01-07' AND pickup_weekday IN (5, 6) 
-|			GROUP BY we_pu_id, we_do_id) as weekends
-|	ON weekdays.wd_pu_id = weekends.we_pu_id AND weekdays.wd_do_id = weekends.we_do_id
-|	UNION 
-|   SELECT *
-|	FROM (SELECT PULocationID wd_pu_id, DOLocationID wd_do_id, COUNT(passenger_count_per_day) wd_aggregated_result
-|			FROM passenger_count_2018
-|			WHERE pickup_date BETWEEN '2018-01-01' AND '2018-01-07' AND pickup_weekday IN (0, 1, 2, 3, 4) 
-|			GROUP BY wd_pu_id, wd_do_id) as weekdays
-|	RIGHT JOIN (SELECT PULocationID we_pu_id, DOLocationID we_do_id, COUNT(passenger_count_per_day) we_aggregated_result
-|			FROM passenger_count_2018
-|			WHERE pickup_date BETWEEN '2018-01-01' AND '2018-01-07' AND pickup_weekday IN (5, 6) 
-|			GROUP BY we_pu_id, we_do_id) as weekends
-|	ON weekdays.wd_pu_id = weekends.we_pu_id AND weekdays.wd_do_id = weekends.we_do_id) as table_1) as table_2;
+.. code:: sql
 
+	SELECT wd_pu_id pu_id, wd_do_id do_id, wd_aggregated_result - we_aggregated_result diff
+	FROM(SELECT CASE WHEN wd_pu_id IS NULL THEN we_pu_id ELSE wd_pu_id END AS wd_pu_id, 
+					CASE WHEN wd_do_id IS NULL THEN we_do_id ELSE wd_do_id END AS wd_do_id,
+					CASE WHEN wd_aggregated_result IS NULL THEN 0 ELSE wd_aggregated_result END AS wd_aggregated_result,
+					CASE WHEN we_pu_id IS NULL THEN wd_pu_id ELSE we_pu_id END AS we_pu_id, 
+					CASE WHEN we_do_id IS NULL THEN wd_do_id ELSE we_do_id END AS we_do_id,
+					CASE WHEN we_aggregated_result IS NULL THEN 0 ELSE we_aggregated_result END AS we_aggregated_result
+	FROM (SELECT *
+		FROM (SELECT PULocationID wd_pu_id, DOLocationID wd_do_id, COUNT(passenger_count_per_day) wd_aggregated_result
+				FROM passenger_count_2018
+				WHERE pickup_date BETWEEN '2018-01-01' AND '2018-01-07' AND pickup_weekday IN (0, 1, 2, 3, 4) 
+				GROUP BY wd_pu_id, wd_do_id) as weekdays
+		LEFT JOIN (SELECT PULocationID we_pu_id, DOLocationID we_do_id, COUNT(passenger_count_per_day) we_aggregated_result
+				FROM passenger_count_2018
+				WHERE pickup_date BETWEEN '2018-01-01' AND '2018-01-07' AND pickup_weekday IN (5, 6) 
+				GROUP BY we_pu_id, we_do_id) as weekends
+		ON weekdays.wd_pu_id = weekends.we_pu_id AND weekdays.wd_do_id = weekends.we_do_id
+		UNION 
+	   SELECT *
+		FROM (SELECT PULocationID wd_pu_id, DOLocationID wd_do_id, COUNT(passenger_count_per_day) wd_aggregated_result
+				FROM passenger_count_2018
+				WHERE pickup_date BETWEEN '2018-01-01' AND '2018-01-07' AND pickup_weekday IN (0, 1, 2, 3, 4) 
+				GROUP BY wd_pu_id, wd_do_id) as weekdays
+		RIGHT JOIN (SELECT PULocationID we_pu_id, DOLocationID we_do_id, COUNT(passenger_count_per_day) we_aggregated_result
+				FROM passenger_count_2018
+				WHERE pickup_date BETWEEN '2018-01-01' AND '2018-01-07' AND pickup_weekday IN (5, 6) 
+				GROUP BY we_pu_id, we_do_id) as weekends
+		ON weekdays.wd_pu_id = weekends.we_pu_id AND weekdays.wd_do_id = weekends.we_do_id) as table_1) as table_2;
+
+.. code:: sql
 
 
 The flow of the code - animation rendering
@@ -213,22 +235,27 @@ The flow of the code - animation rendering
 
 | The first functions call **process the shapefile** (shp_to_df and process_shape_boundaries). 
 | Then comes the **drawing of the base map**. The main function (draw_base_map) receives a dictionary as an input, and returns both the base map (image object) and the projection used to scale the objects rendered on the image. 
-| draw_dict = {'image_size':image_size, 'render_single_borough':render_single_borough,
-|              'map_type':map_type, 'title':title, 
-|              'shape_dict':shape_boundaries, 'df_sf':df_sf}
+
+.. code:: python
+
+ draw_dict = {'image_size':image_size, 'render_single_borough':render_single_borough,
+              'map_type':map_type, 'title':title, 
+              'shape_dict':shape_boundaries, 'df_sf':df_sf}
+
+.. code:: python
 
 
-| The script finally calls the function in charge of **processing and rendering the animation** (render_animation_query_output). It also accepts a dictionary as an input.
-| render_animation_dict = {'time_granularity':time_granularity, 'period':period,  
-|                          'weekdays':weekdays,'base_map':base_map,
-|                          'filter_query_on_borough':filter_query_on_borough, 
-|                          'projection':projection, 'map_type':map_type,
-|                          'image_size':image_size,'shape_dict':shape_boundaries, 
-|                          'df_sf':df_sf,'database':database, 'data_table':data_table, 
-|                          'lookup_table':lookup_table,
-|                          'aggregated_result':aggregated_result,
-|                          'render_single_borough':render_single_borough,
-|                          'video_title':title}
+The script finally calls the function in charge of **processing and rendering the animation** (render_animation_query_output). It also accepts a dictionary as an input.
+
+.. code:: python
+
+	render_animation_dict = {'time_granularity':time_granularity, 'period':period,'weekdays':weekdays,'base_map':base_map,
+							'filter_query_on_borough':filter_query_on_borough,'projection':projection, 'map_type':map_type,
+							'image_size':image_size,'shape_dict':shape_boundaries, 'df_sf':df_sf,'database':database, 
+							'data_table':data_table, 'lookup_table':lookup_table,'aggregated_result':aggregated_result, 
+							'render_single_borough':render_single_borough,'video_title':title}
+
+.. code:: python
 
 This function (render_animation_query_output) is actually in charge of three things:
 
@@ -236,18 +263,28 @@ This function (render_animation_query_output) is actually in charge of three thi
 - render each frame
 - build one or more videos with all the frames rendered
 
-| To build the query, the function (build_query_dict) is called, and is passed a dictionary as an argument.
-| query_dict = {'data_table':'taxi_rides_2018', 'lookup_table':'taxi_zone_lookup_table', 
-|              'aggregated_result':'avg', 'date':single_date, 
-|              'specific_weekdays':'on_specific_weekdays', 'filter_query_on_borough':'Manhattan'}
+To build the query, the function (build_query_dict) is called, and is passed a dictionary as an argument.
+.. code:: python
+
+ query_dict = {'data_table':'taxi_rides_2018', 'lookup_table':'taxi_zone_lookup_table', 
+              'aggregated_result':'avg', 'date':single_date, 
+              'specific_weekdays':'on_specific_weekdays', 'filter_query_on_borough':'Manhattan'}
+
+.. code:: python
+
 
 For simplification, as the number of passengers that travel *between two days* (i.e leave one day and arrive the next, because they	travel around midnight) is negligeable compared to the rest of the trips, we **use the pick up date as a reference for the date**.
 
-| Using this query_dict obtained, the rendering of each frame is taken care of by the (render_all_frames) function. This function also uses a dictionary as an input.
-| render_frame_dict = {'query_dict':query_dict, 'database':database,
-|                      'base_map':base_map, 'converted_shape_dict': converted_shape_dict,
-|                      'map_type':map_type, 'frames': frames,
-|                      'video_title': title}
+Using this query_dict obtained, the rendering of each frame is taken care of by the (render_all_frames) function. This function also uses a dictionary as an input.
+
+.. code:: python
+
+ render_frame_dict = {'query_dict':query_dict, 'database':database,
+                      'base_map':base_map, 'converted_shape_dict': converted_shape_dict,
+                      'map_type':map_type, 'frames': frames,
+                      'video_title': title}
+
+.. code:: python
 
 This function (render_all_frames) takes care of:
 
@@ -291,7 +328,13 @@ The logic is similar to the one of the animation rendering, though not exactly t
 | Finally, the (render_heat_map_query_output) function is called twice, once for the incoming flow and once for the outgoing flow.
 
 This last function (render_heat_map_query_output) is provided a dictionary for each flow direction. This dictionary is built using the zone_id as a key, and a list of tuples as a value. The list of tuples contains the id of the zone 'linked' to the key zone id and the weight (number of passengers) of that link. So basically, in the incoming dictionary we have as a key the zone_idof the zones where people *go to*, and as a list the zone id of where they come from and how many people went. For example, for a given period, n passengers went to zone A coming from zone B, m passengers coming from zone C. The dictionary will look like this:
-| incoming_dict = {'A';[(B, n), (C,m)]}
+
+.. code:: python
+
+	incoming_dict = {'A';[(B, n), (C,m)]}
+
+.. code:: python
+
 
 The logic is the same for the outgoing flow, except that the tuple now contains the zone_id of the zones where people *go* while coming from the key zone. 
 
@@ -302,11 +345,15 @@ The function (render_heat_map_query_output) will loop through the keys of either
 - render the map for the whole city
 - render the map borough focused
 
-| The last two steps are performed using yet another function called (render_map), that also accepts a dictionary as an input:
-| render_map_dict_borough = {'map_to_render':borough_name, 'zone_id': zone_id, 
-|                          	'trips_list':trips_list, 'draw_dict':draw_dict,
-|                          	'file_name':borough_file_name}
- 
+The last two steps are performed using yet another function called (render_map), that also accepts a dictionary as an input:
+..code::python
+
+	render_map_dict_borough = {'map_to_render':borough_name, 'zone_id': zone_id, 
+	                         	'trips_list':trips_list, 'draw_dict':draw_dict,
+	                         	'file_name':borough_file_name}
+
+..code::python
+
 
 To render the map using the (render_map), the following steps are performed:
 
@@ -320,7 +367,7 @@ To render the map using the (render_map), the following steps are performed:
 
 A graph is provided in this repository with the logical flow of the code.
 Note that other support functions are used and not mentioned here but included in the graph and the documentation below. 
- 
+
 
 
 Main script input
@@ -328,12 +375,16 @@ Main script input
 
 **To render animations:**
 
-| animation_dict = {'shp_path':shp_path, 'image_size':(1920,1080), 'map_to_render':['total', 'Manhattan'],
-|					'render_single_borough':False, 'filter_query_on_borough':False, 
-|					'title':'General flow of passengers in 2018', 'db':'nyc_taxi_rides', 
-| 					'data_table':'taxi_rides_2018', 'lookup_table':'taxi_zone_lookup_table', 
-|					'aggregated_result':'count', 'time_granularity':'period', 
-| 					'period':['2018-01-01','2018-01-03'], 'weekdays':[]}
+..code::python 
+
+	animation_dict = {'shp_path':shp_path, 'image_size':(1920,1080), 'map_to_render':['total', 'Manhattan'],
+						'render_single_borough':False, 'filter_query_on_borough':False, 
+						'title':'General flow of passengers in 2018', 'db':'nyc_taxi_rides', 
+	 					'data_table':'taxi_rides_2018', 'lookup_table':'taxi_zone_lookup_table', 
+						'aggregated_result':'count', 'time_granularity':'period', 
+	 					'period':['2018-01-01','2018-01-03'], 'weekdays':[]}
+
+..code::python 
 
 
 Arguments:
@@ -355,12 +406,15 @@ Arguments:
 
 **To render heat maps:**
 
-|heat_map_dict = {'shp_path':shp_path, 'image_size':(1920,1080),'db':'nyc_taxi_rides', 
-|                 'data_table':'passenger_count_2018','lookup_table':'taxi_zone_lookup_table', 
-|                 'aggregated_result':'count', 'weekdays_vs_weekends':True,
-|                 'period':['2018-01-01','2018-01-07'], 'render_single_borough':False,
-|                  'filter_query_on_borough':False,'title':'Title'} 
+..code::python 
 
+	heat_map_dict = {'shp_path':shp_path, 'image_size':(1920,1080),'db':'nyc_taxi_rides', 
+					'data_table':'passenger_count_2018','lookup_table':'taxi_zone_lookup_table', 
+					'aggregated_result':'count', 'weekdays_vs_weekends':True,
+					'period':['2018-01-01','2018-01-07'], 'render_single_borough':False,
+					'filter_query_on_borough':False,'title':'Title'} 
+
+..code::python 
 
 Arguments:
 
@@ -453,14 +507,17 @@ Each function is documented below (purpose, input and output). Most functions ar
     function. 
     
     The input of this function could look like the example below
-    
-|    render_animation_dict = {'time_granularity':'period', 'period':['2018-01-01','2018-01-01'] ,  
-|                 'weekdays':[0, 1, 2, 3, 4],'filter_query_on_borough':'Manhattan', 
-|                 'base_map':test_map,'map_type':'Manhattan', 'image_size':[1920, 1080],
-|                 'shape_dict':shape_boundaries, 'df_sf':df_sf, 
-|                 'database':'nyc_taxi_rides', 'data_table':'taxi_rides_2018', 
-|                 'lookup_table':'taxi_zone_lookup_table', 'aggregated_result':'avg'}
-    
+    ..code::python
+
+	    render_animation_dict = {'time_granularity':'period', 'period':['2018-01-01','2018-01-01'] ,
+	    						'weekdays':[0, 1, 2, 3, 4],'filter_query_on_borough':'Manhattan', 
+	    						'base_map':test_map,'map_type':'Manhattan', 'image_size':[1920, 1080],
+	    						'shape_dict':shape_boundaries, 'df_sf':df_sf, 
+	    						'database':'nyc_taxi_rides', 'data_table':'taxi_rides_2018', 
+	    						'lookup_table':'taxi_zone_lookup_table', 'aggregated_result':'avg'}
+    ..code::python
+
+
     Note that:
 
     - time_granularity can have three different values : 'period', 'specific_weekdays'.
@@ -1058,6 +1115,7 @@ Further work and improvements
 -----------------------------
 
 Several paths could be followed to improve the code and the analysis, for example:
+
 - refactoring the code to use classes (OOP)
 - make the heat map function more flexible (choose which maps to render)
 - represent the variation over time withing one day

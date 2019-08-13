@@ -23,8 +23,8 @@ In this repository, you will find:
 
 - A Jupyter notebook (Taxi rides analysis) exposing the first approach I took, using static visualisations
 - A second Jupyter notebook (Taxi rides analysis II) with the second approach using a database and OpenCV to render animations and heat maps
-- The few animations that were generated (using arguments provided in the second notebook)
-- The few heat maps generated (likewise)
+- Some sections of the few animations that were generated (using arguments provided in the second notebook)
+- A few maps from all heat maps generated (using as well arguments provided in the second notebook)
 - A code flow graph to expose the connections of the functions for the animation rendering
 - A code flow graph to expose the connections of the functions for the heat map rendering
 - This readme file containing documentation of the functions, as well as the installation requisites and sources
@@ -244,7 +244,7 @@ The flow of the code - animation rendering
 
 .. code:: python
 
-
+The scrip then queries the the database, using process_query_arg.
 The script finally calls the function in charge of **processing and rendering the animation** (render_animation_query_output). It also accepts a dictionary as an input.
 
 .. code:: python
@@ -257,7 +257,9 @@ The script finally calls the function in charge of **processing and rendering th
 
 .. code:: python
 
-This function (render_animation_query_output) is actually in charge of three things:
+The function process_query_arg is in charge of building and executing the query using prepare_sql_query and make_sql_query, and returns the result of the query. The query result is provided as a dictionary, which key is the date of reference for the result given (either a single date or the first day of the week the data provided as a list for the value in the dictionary was aggregated for).
+
+The function (render_animation_query_output) is actually in charge of three things:
 
 - build the query
 - render each frame
@@ -289,7 +291,6 @@ Using this query_dict obtained, the rendering of each frame is taken care of by 
 
 This function (render_all_frames) takes care of:
 
-- querying the database, using prepare_sql_query and make_sql_query, that returns the result of the query
 - rendering each frame, using render_frame, that returns an image object, after calculating the position and rendering the points on a copy of the base map
 - appending each frame to a list of all frames, that will be used to build the animation (by the render_animation_query_output function).
 
@@ -298,7 +299,7 @@ This function (render_all_frames) takes care of:
 | Note that other support functions are used and not mentioned here but included in the graph and the documentation below.
  
 
-The flow of the code - heat map rendering
+The flow of the code - chloropeth map rendering
 ------------------------------------------
 
 This function, overall, will follow pretty much the same flow, to the exception that it is not as flexible regarding the maps we render - by default, we will render all of them. Which means that upon lauching the script, we will see as an output:
@@ -380,16 +381,16 @@ Main script input
 
 This is the dictionary to pass as an input to the make_flow_animation function:
 
-.. code::python 
+.. code:: python 
 
 	animation_dict = {'shp_path':shp_path, 'image_size':(1920,1080), 'map_to_render':['total', 'Manhattan'],
 						'render_single_borough':False, 'filter_query_on_borough':False, 
 						'title':'General flow of passengers in 2018', 'db':'nyc_taxi_rides', 
 	 					'data_table':'taxi_rides_2018', 'lookup_table':'taxi_zone_lookup_table', 
 						'aggregated_result':'count', 'time_granularity':'period', 
-	 					'period':['2018-01-01','2018-01-03'], 'weekdays':[]}
+	 					'period':['2018-01-01','2018-01-03'], 'weekdays':(), 'aggregated_period':False}
 
-.. code::python 
+.. code:: python 
 
 
 Arguments:
@@ -406,14 +407,14 @@ Arguments:
 - aggregated_result: the type of result we want from the query, either avg or count (note that the query results will always be structured 'PULocationID', 'DOLocationID', aggregated_result).
 - time_granularity: if we want to filter for specific weekdays or we want results for every day in the provided period
 - period: the time interval to consider for the query. If we want for a single date, start and end date should be inputted the same.
-- weekdays: the index of the weekday(s) we want data for (0 being Monday, 6 being Sunday). If we want to filter on one or more weekday, time_granularity should be set to 'on_specific_weekdays'. If we we do not want to filter on any weekday, time_granularity should be set to 'period' and the array of weekdays left empty [].
-
+- weekdays: the index of the weekday(s) we want data for (0 being Monday, 6 being Sunday). If we want to filter on one or more weekday, time_granularity should be set to 'on_specific_weekdays'. If we we do not want to filter on any weekday, time_granularity should be set to 'period' and the array of weekdays left empty ().
+- aggregated_period: whether we want the results to be shown for each day, or aggregated per week
 
 **To render heat maps**
 
 This is the dictionary to pass as an input to the make_heat_map function:
 
-.. code::python 
+.. code:: python 
 
 	heat_map_dict = {'shp_path':shp_path, 'image_size':(1920,1080),'db':'nyc_taxi_rides', 
 					'data_table':'passenger_count_2018','lookup_table':'taxi_zone_lookup_table', 
@@ -421,7 +422,7 @@ This is the dictionary to pass as an input to the make_heat_map function:
 					'period':['2018-01-01','2018-01-07'], 'render_single_borough':False,
 					'filter_query_on_borough':False,'title':'Title'} 
 
-.. code::python 
+.. code:: python 
 
 Arguments:
 
@@ -468,27 +469,29 @@ Regarding the colour code used:
 - I picked the viridis color palette. Although recommended for its smooth transitions that specifically applied to heat maps, I also used two colors to represent the dots in the animations.
 
 Regarding the video parameters:
+
 - I chose a rather high resolution (1920x1080) to allow the image to be of good quality (the more details the better without exageration)
 - I chose to render 30 fps, to give time to see the animation at normal speed. But I could have gone for 60 to be able to record in slow motion using video editing afterwards
 
 Regarding the plot itself:
 
-- I chose to normalize the weight of the point based on the max number of passengers which means that from one day to another, although the biggest point will have the same size, it will not represent the same number of passengers (compromise to prevent having huge differences between the points, or squishing too much the scale by using a log.
+- I chose to normalize the weight of the point based on the max number of passengers of the whole period analysed, which means that from one day to another, the points will have a size varying between the max and the min of passengers on the whole period. It can be that for day with low traffic, the contrast in the size of the points is not very obvious. 
 - What is represented is actually the flow of people from one zone to another, extrapolated to make the point move between its origin and its destination. I.e not an itinerary, not a time related position of people. Just an animation of the flow of people between one origin and one destination, averaged or counted per day. 
-
 
 **Rendering choices for the heat map rendering**
 
 Regarding the colour code used:
 
-- To be consistent with the animation choiced, I chose a black background to illuminate the map and allow contrast to be more visible
+- To be consistent with the animation choices, I chose a black background to illuminate the map and allow contrast to be more visible
 - However, I used another color palette, where darker (closer to the background color) means few people traveling and lighter means more people traveling. To plot the difference between weekdays and weekends, we use two different tones for positive and negative values, but the logic is the same.
 
 
 Regarding the plot itself:
 
-- There is no normalization of the weight, but a linear choice of color depending on the value. 
-- One map is dedicated to one zone, highlighted with a thicker outline.
+- I use a color scale that spans from 0 to max value, and normalize the weight using this scale. It can happens that if the min value of closer to the max value than 0, the contrast between the plotted colors is not evident. 
+- One map is dedicated to one zone, highlighted with a thicker yellow outline.
+
+Besides, I decided to create an extra table with preprocessed data in order to speed up the queries to render the maps. 
 
 
 **Libraries choices**
@@ -502,6 +505,17 @@ The comments regarding the libraries are the same.
 
 Regarding the other libraries, they appeared as the most appropriate for the task to be performed, and I tried to limit them to the strict minimum.
 Note that I used a library for the projection of the coordinates in the first approach, but I ended up writting my own projection function when working on the second approach. 
+
+
+Note on performance
+-------------------
+
+I really tried to optimise both the queries and the code as to minimise computation tasks and memory usage. There are probably improvements that can be done.
+To give an idea on how much time it took to run on my environment:
+
+- about 6 minutes to render the maps (so if we render whole year and difference between weekdays and weekends we need about 12 minutes)
+- about 23 minutes to render the video of NYC with the whole year
+- an extra 3 minutes to render another video with the whole year and the same query results
 
 
 
@@ -518,7 +532,7 @@ Provided several arguments regarding the type of query we want to make, it gener
 
 The input of this function could look like the example below
 
-.. code::python
+.. code:: python
 
 	render_animation_dict = {'time_granularity':'period', 'period':['2018-01-01','2018-01-01'] ,
 							'weekdays':[0, 1, 2, 3, 4],'filter_query_on_borough':'Manhattan', 
@@ -527,7 +541,7 @@ The input of this function could look like the example below
 							'database':'nyc_taxi_rides', 'data_table':'taxi_rides_2018', 
 							'lookup_table':'taxi_zone_lookup_table', 'aggregated_result':'avg'}
 
-.. code::python
+.. code:: python
 
 
 Note that:
@@ -553,6 +567,7 @@ Input: list of tuples of coordinates of a shape, or list of all the max and min 
 Output: the coordinates of the most extreme points of the targeted area (shape or map)
 
 
+
 **calculate_centroid(points)**
 
 Given a list of tuples of coordinates this function calculates the mean on each axis.
@@ -563,7 +578,8 @@ Input: list of tuples of coordinates of a shape
 Output: the center coordinates of the shape
 
 
- **compute_color(weight, min_passenger, max_passenger)**
+
+**compute_color(weight, min_passenger, max_passenger)**
 
 This function returns a BGR array associated with the color_index of a color palette.
 
@@ -574,15 +590,17 @@ Input: the weight value, the min and max values of passengers
 Output: a BGR color array
 
 
-**compute_min_max_passengers(trips_list)**
+
+**compute_min_max_passengers(trips_list, idx_weight)**
 
 This function returns the min and max values of passengers associated to the traffic of a particular zone (incoming or outgoing flow of people). 
 
 Note that this function has been used only for the heat map rendering but could as well have been used for the animation rendering.
 
-Input: list of tuples, with for each tuple the id of the linked zone (i.e a zone people come from to go to the zone we are look at, or coming from) and the associated number of passengers.
+Input: list of tuples, with for each tuple the id of the linked zone (i.e a zone people come from to go to the zone we are look at, or coming from) and the associated number of passengers. The idx_weight passed as an input is used to know at which position in the tuple is the weight variable.
 
 Output: the min and max number of passengers associated to a single zone.
+
 
 
 **compute_weight(map_type, weight, max_passenger)**
@@ -593,6 +611,7 @@ itinerary. The calculation is actually a normalisation of the values of the aggr
 Input: the map_type (for the scaling), the weight for a single link and the max_number of passengers for the time interval observed. 
 
 Output: the value of the normalized weight to use to render a point.
+
 
 
 **convert_id_shape(idx, inverse = False)**
@@ -606,6 +625,7 @@ Input: the index and the direction of the conversion we want to perform
 Output: the index converted.
 
 
+
 **convert_projection(x, y, projection, inverse=False)**
 
 This function converts coordinates from one projection system to another.
@@ -617,6 +637,7 @@ Input: x an y coordinates to convert, as well as the "direction" of the projecti
 Output: the x and y coordinates in the new coordinate system.
 
 
+
 **convert_shape_boundaries(zone_shape_dict, projection)**
 
 This function edits the dictionary with the shape boundaries coordinates by converting them to the image scale 'coordinate' system.  
@@ -624,6 +645,7 @@ This function edits the dictionary with the shape boundaries coordinates by conv
 Input: shape boundaries dictionary in the initial coordinate system
 
 Output: a dictionary with for each zone id the set of boundary coordinates in the image scale, centered.
+
 
 
 **define_projection(map_max_bound, map_min_bound, image_size)**
@@ -639,6 +661,7 @@ Input: max and min boundaries coordinates tuples of the map to draw
 Output: a dictionary with the parameters to perform the projection
 
 
+
 **display_general_information_text(image, map_type, video_title)**
 
 This function writes text common to all frames, on the base map in particular.
@@ -648,6 +671,7 @@ Input: the image of the base map to write on, the map_type to be able to append 
 Output: the base map including the legend and the title or the map. 
 
 
+
 **display_scale_legend(map_image, font, min_pass, max_pass, colors)**:
 
 This function generates dynamically a color bar scale for a given map, using the min and max values represented, and the compute_color function.
@@ -655,6 +679,7 @@ This function generates dynamically a color bar scale for a given map, using the
 Input: the map on which to draw the legend bad, the font to write the associated text, the min and max values for the flow and all the colors used on the map as an array.
 
 Output: a color bar plotted on the map for the legend
+
 
  
 **display_specific_text(rendered_frame, date, map_type, min_pass, max_pass)**
@@ -666,22 +691,24 @@ Input: the frame to write on, the date (as this is what we want to write), as we
 Output: the text is added to the frame.
 
 
+
 **draw_base_map(draw_dict)**
 
 This function returns a base map image of the zone we want to render. It is provided a dictionary with the parameters of the rendering. Such dictionary should look like the example below.
 
-.. code::python
+.. code:: python
 
     draw_dict = {'image_size':[1920, 1080], 'map_type':'Manhattan', 
     			'title':'Passenger flow on Mondays of Jan 2018 in total', 
     			'shape_dict':shape_boundaries, 'df_sf':df_sf}
 
-.. code::python
+.. code:: python
 
 
 Input: a dictionary with the attributes of the rendering, such as the image size, the title, the targeted area to draw (total for the whole city, or a single borough provided with its name), the shape boundaries dictionary in the initial coordinate system, and the dataframe obtained from the shapefile (to make the association of zone id and borough name).
 
 Output: the image of the base map as well as the projection used to draw it.
+
 
 
 **find_max_coords(shape_dict)**
@@ -695,6 +722,7 @@ Input: the shape dictionary, in which for all shape there is the max and min tup
 Output: the coordinates of the most extreme points of the map.
 
 
+
  **find_names(zone_id, df_sf)**
 
 This function simply returns the name of the zone associated to a zone_id as well as the name of the borough it belongs to.
@@ -702,6 +730,7 @@ This function simply returns the name of the zone associated to a zone_id as wel
 Input: zone_id, dataframe extracted from the shapefile to find the correspondance between an id and the names.
 
 Output: the zone name and its borough name.
+
 
 
 **get_shape_set_to_draw(map_type, shape_dict, df_sf, image_size)**
@@ -717,6 +746,7 @@ Input: the targeted base map type, the shape boundaries dictionary in the initia
 Output: a dictionary for only the zones to draw with the boundary coordinates in the image scale, and centered, as well as the projection used.
 
 
+
 **interpolate_next_position(origin_coords, destination_coords, tot_frames, curr_frame)**
 
 This function calculates the position of a point to render on a map based on the distance to cross (between origin and destination), in the total number of frames we want (for example 60), and based on the current frame we are rendering.
@@ -725,6 +755,7 @@ The idea is to go from origin to destination in tot_frames, moving a little bit 
 Input: the coordinates of the origin and destination, to know the distance to cross, the total number of frames we have to cross this distance, and the current frame we render to know where the point should be. 
 
 Output: the coordinates of the point to render at the given frame. 
+
 
 
 **make_flow_animation(animation_dict)**
@@ -736,6 +767,7 @@ Input: rendering parameters dictionary (see above the details about the input).
 Output: video(s) of the animations.
 
 
+
 **make_heat_map(heat_map_dict)**
 
 This is the main script to render chloropeth maps (not really heat maps at this point, but it could!). It accepts a dictionary as input (see above the details about the input), and returns the animations processed according to the parameters set by the user. 
@@ -743,6 +775,7 @@ This is the main script to render chloropeth maps (not really heat maps at this 
 Input: rendering parameters dictionary (see above the details about the input).
 
 Output: video(s) of the animations.
+
 
 
 **make_video_animation(frames, image_size, map_type)**
@@ -755,6 +788,7 @@ build the title of the video.
 Output: the animation as a .avi file. 
 
 
+
 **make_sql_query(query, database)** 
 
 This function connects to the database and execute the query. It returns the result as an array of tuples. 
@@ -764,6 +798,7 @@ Input: the formatted query and the database to execute the query on.
 Output: the query results.
 
 
+
 **prepare_heat_map_sql_query(query_dict)**
 
 This function is very similar to the prepare_sql_query used for the animation.
@@ -771,13 +806,13 @@ It returns the query to execute on the database, which result will be used to be
 
 It is provided a dictionary with the parameters of the query. Such dictionary should look like the example below.
 
-.. code::python
+.. code:: python
 
 	query_dict = {'data_table':'taxi_rides_2018', 'lookup_table':'taxi_zone_lookup_table', 
 	              'aggregated_result':'avg', 'date':single_date, 
 	              'specific_weekdays':'weekdays_vs_weekends', 'filter_query_on_borough':'Manhattan'}
 
-.. code::python
+.. code:: python
 
 Input: a dictionary with the attributes of the query, such as
 
@@ -793,18 +828,19 @@ Note that:
 Output: the query to execute formatted.
 
 
+
 **prepare_sql_query(query_dict)**
 
 This function returns the query to execute on the database, which result will be used to be plotted on the base map as to build visualizations. 
 It is provided a dictionary with the parameters of the query.  Such dictionary should look like the example below.
 
-.. code::python
+.. code:: python
 
     query_dict = {'data_table':'taxi_rides_2018', 'lookup_table':'taxi_zone_lookup_table', 
                   'aggregated_result':'avg', 'date':single_date, 
                   'specific_weekdays':'on_specific_weekdays', 'filter_query_on_borough':'Manhattan'}
 
-..code::python
+..code:: python
 
 Input: a dictionary with the attributes of the query, such as
 
@@ -821,24 +857,34 @@ Note that:
 Output: the query to execute formatted.  
 
 
- **process_heat_map_query_results(query_results)**
+
+**process_heat_map_query_results(query_results)**
 
 This function transforms the results of the query (provided in the form of a list of tuples (origin_zone_id, destination_zone_id, number_passenger) into two dictionaries.
 
 These dictionaries are built using the zone_id as a key, and a list of tuples as a value. The list of tuples contains the id of the zone 'linked' to the key zone id and the weight (number of passengers) of that link. So basically, in the incoming dictionary we have as a key the zone_idof the zones where people *go to*, and as a list the zone id of where they come from and how many people went. For example, for a given period, n passengers went to zone A coming from zone B, 
 m passengers coming from zone C. The dictionary will look like this:
 
-..code::python
+..code:: python
 
  	incoming_dict = {'A';[(B, n), (C,m)]}
 
-..code::python
+..code:: python
 
 The logic is the same for the outgoing flow, except that the tuple now contains the zone_id of the zones where people *go* while coming from the key zone. 
 
 Input: the query results
 
 Output: two dictionaries, incoming and outgoing flow
+
+
+**process_query_arg(render_animation_dict)**
+
+This function uses the same dictionary as render_animation_query_output as an input. It is in charge of building the query and executing it on the database. It returns a dictionary as an output, with the date used for the query as a key and the array of results as a value.
+
+Input: the render_animation_dict (see function render_animation_query_output for details)
+
+Output: the query results dictionary.
 
 
 **process_shape_boundaries(df_sf, sf)**
@@ -850,6 +896,7 @@ Input: shapefile and dataframe converted from the shapefile (the dataframe is us
 Output: a dictionary with for each zone id the set of boundary coordinates the initial coordinate system.
 
 
+
 **reduce_shape_dict_to_borough(shape_dict, df_sf, borough_name)**
 
 This function returns a reduced dictionary of shapes limited to the borough which name is provided as an argument. The dictionary is indexed per zone_id (0 to 262, so would need conversion to match the index scale of PULocationID and DOLocationID, 1 to 263), with for each zone a dictionary with all relevant coordinates (boundary points, center, max and min boundary points) in the original coordinate system (since the dictionary provided as an input is not yet converted).
@@ -859,35 +906,41 @@ Input: the shape boundaries dictionary in the initial coordinate system, the bor
 Output: a dictionary for only the zones to draw with the of boundary coordinates in the initial coordinate system.
 
 
+
 **render_all_frames(render_frame_dict)**
 
 This function renders all the frames of a single date (60 frames per date), and returns the list of frames as a list, that is then used by another function to build the video of the animation.
 
 The input dictionary can be as follows:
 
-..code::python
+.. code:: python
 
-    render_frame_dict = {'query_dict':query_dict, 'database':database,
+    render_frame_dict = {'query_date':query_date, 'query_result': query_result, database':database,
                         'base_map':base_map, 'converted_shape_dict': converted_shape_dict,
-                        'map_type':map_type, 'frames': frames,
-                        'video_title': title}
+                        'map_type':map_type, 'frames': frames,'agg_per':True,
+                        'video_title': title, 'min_pass': min_passenger, 'max_passs':max_passenger}
 
-..code::python                    
+.. code:: python                    
 
 The arguments are:
 
-- query_dict: all the details needed to build the query prior to executing it
+- query_date: the reference date for the query (either single date used to query the database, or the first day of the week an aggregation is done for)
+- query_result: the results of the query
 - database: the database to connect to
 - base_map: the map to plot the points on
 - converted_shape_dict: the dictionary with the shapes converted to the coordinate system of the base map we use
 - map_type: whether we want to center on a single borough (and either plot it alone or with other boroughs around), or the entire city map
 - frames: the list of frames already rendered (we want to append all frames of the video)
 - video_title: the name to give to the 
+- agg_per: whether we aggregate the data per week on the given time interval
+- min_pass : the min number of passengers on the whole period
+- max_pass : the max number of passengers on the whole period
 
 
 Input: a dictionary with the arguments provided by the user on what and how to render.
 
 Output: all the frames to build the animation on. 
+
 
 
 **render_animation_query_output(render_animation_dict)**
@@ -897,7 +950,7 @@ It relies on a lot of other functions, such as the function that builds the anim
 
 The input dictionary can be as follows:
 
-.. code::python
+.. code:: python
 
     render_animation_dictrender_frame_dict = {'time_granularity':time_granularity, 'period':period,  
          'weekdays':weekdays,'filter_query_on_borough':filter_query_on_borough, 
@@ -906,7 +959,7 @@ The input dictionary can be as follows:
          'database':database, 'data_table':data_table, 
          'lookup_table':lookup_table, 'aggregated_result':aggregated_result}
 
-.. code::python
+.. code:: python
 
 The arguments are:
 
@@ -937,7 +990,8 @@ Input: a dictionary with the arguments provided by the user on what and how to r
 Output: the animation as a .avi file. 
 
 
- **render_frame(frame, base_map, query_results, converted_shape_dict, map_type)**
+
+**render_frame(frame, base_map, query_results, converted_shape_dict, map_type)**
 
 This function renders a single frame on a copy of the base map using the query results, the shape dictionary converted to the proper coordinate system and another function dedicated to rendering the point on the image. 
 
@@ -948,6 +1002,7 @@ This last argument is used to scale the size of the points (made smaller if the 
 Output: the image of the frame with the points rendered based on the query results.
   
 
+
 **render_heat_map_query_output(render_heat_map_dict)**
 
 This function renders all maps for the whole city and all borough-focused maps, for both outgoing and incoming flows. This function relies on the render_map function to render each single map.
@@ -955,12 +1010,12 @@ It is also responsible for drawing the legend and saving the final image.
 
 It accepts as an input dictionary the following example (for outgoing flow, similar for incoming flow):
 
-.. code::python
+.. code:: python
 
     render_heat_map_dict_out = {'draw_dict':draw_dict, 'flow_dict':outgoing_flow, 
                             'flow_dir': 'out','time_granularity':time_granularity}
 
-.. code::python
+.. code:: python
 
 The arguments are:
 
@@ -972,6 +1027,7 @@ The arguments are:
 Input: render_heat_map_dict
     
 Output: all the maps generated and saved using the file naming convention
+
 
 
 **render_map(render_map_dict)**
@@ -1001,6 +1057,7 @@ Input: a dictionary with the arguments provided by the user on what and how to r
 Output: one single map passed back to the render_heat_map_query_output function. 
 
 
+
 **render_point_on_map(x_point, y_point, weight, base_map, colour)**
 
 This function simply renders a circle at the x and y coordinates provided, on the base map provided, and with a diameter matching the weight given. The weight being for example the count of passengers that went from one zone to another.
@@ -1009,6 +1066,7 @@ If the origin and the destination are the same, the point is rendered in a diffe
 Input: the index and the direction of the conversion we want to perform
 
 Output: the index converted.
+
 
 
 **shp_to_df(sf)**

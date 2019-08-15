@@ -32,8 +32,8 @@ In this repository, you will find:
 
 Note that two blog posts were written to expose the conclusions and the process of the analysis, and can be found here:
 
-- XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-- XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+- https://medium.com/@mozart38/where-do-people-go-in-nyc-the-recipe-of-an-analysis-a307499013a6
+- https://medium.com/@mozart38/where-do-people-go-in-nyc-5-facts-and-observations-of-2018-57308d26d7c8
 
 Important note: in the code and documentation below, we talk about a heat map, while the representation we use is actually called a **choropleth map**.
 
@@ -299,7 +299,7 @@ This function (render_all_frames) takes care of:
 | Note that other support functions are used and not mentioned here but included in the graph and the documentation below.
  
 
-The flow of the code - chloropeth map rendering
+The flow of the code - chloropleth map rendering
 ------------------------------------------
 
 This function, overall, will follow pretty much the same flow, to the exception that it is not as flexible regarding the maps we render - by default, we will render all of them. Which means that upon lauching the script, we will see as an output:
@@ -515,7 +515,9 @@ To give an idea on how much time it took to run on my environment:
 
 - about 6 minutes to render the maps (so if we render whole year and difference between weekdays and weekends we need about 12 minutes)
 - about 23 minutes to render the video of NYC with the whole year
-- an extra 3 minutes to render another video with the whole year and the same query results
+- an extra 15 minutes to render another video of a borough with the same query results
+- about 13 minutes to render the video of NYC with only weekdays, aggregated per week
+- an extra 3 minutes to render another video of a borough with the same query results
 
 
 
@@ -770,7 +772,7 @@ Output: video(s) of the animations.
 
 **make_heat_map(heat_map_dict)**
 
-This is the main script to render chloropeth maps (not really heat maps at this point, but it could!). It accepts a dictionary as input (see above the details about the input), and returns the animations processed according to the parameters set by the user. 
+This is the main script to render chloropleth maps (not really heat maps at this point, but it could!). It accepts a dictionary as input (see above the details about the input), and returns the animations processed according to the parameters set by the user. 
 
 Input: rendering parameters dictionary (see above the details about the input).
 
@@ -1111,6 +1113,7 @@ Besides using extensively the documentation of the libraries used, I also looked
 
 While looking at this famous data compilation, I came accross this content that is worth taking a look at!
 
+- https://tlcanalytics.shinyapps.io/tlc_fast_dash/
 - https://toddwschneider.com/posts/analyzing-1-1-billion-nyc-taxi-and-uber-trips-with-a-vengeance/#taxi-weather
 - https://chih-ling-hsu.github.io/2018/05/14/NYC
 - https://www.kdnuggets.com/2017/02/data-science-nyc-taxi-trips.html

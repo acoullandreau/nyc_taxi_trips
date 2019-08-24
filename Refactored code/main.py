@@ -1,3 +1,6 @@
+import cv2
+import mysql.connector
+import pandas as pd
 
 import classfile
 from utility import Utils
@@ -8,9 +11,11 @@ def render_base_map(draw_dict):
     margins = draw_dict['margins']
     filter_on = draw_dict['filter_on']
     zoom_on = draw_dict['zoom_on']
+    map_type = draw_dict['map_type']
+    title = draw_dict['title']
 
     base_shapefile = classfile.ShapeFile(shp_path)
-    base_shapefile.build_shape_dict(nyc_base_shapefile.df_sf)
+    base_shapefile.build_shape_dict(base_shapefile.df_sf)
 
     if filter_on != []:
         filter_cond = filter_on[0]
@@ -19,7 +24,7 @@ def render_base_map(draw_dict):
         base_shapefile.build_shape_dict(df_filtered)
 
     base_map = classfile.Map(base_shapefile, image_size)
-    projection = classfile.Projection(base_map, margin)
+    projection = classfile.Projection(base_map, margins)
 
     if zoom_on != []:
         zoom_on_cond = zoom_on[0]
@@ -28,13 +33,14 @@ def render_base_map(draw_dict):
         df_zoom = zoom_shapefile.filter_shape_to_render(zoom_on_cond, zoom_on_attr)
         zoom_shapefile.build_shape_dict(df_zoom)
         zoom_map = classfile.Map(zoom_shapefile, image_size)
-        projection = classfile.Projection(zoom_map, margin)
+        projection = classfile.Projection(zoom_map, margins)
 
     for zone_id in base_map.shape_dict:
         shape = base_map.shape_dict[zone_id]
         shape.project_shape_coords(projection)
 
     base_map.render_map()
+    base_map.map_file = display_general_information_text(base_map.map_file, map_type, title)
 
     return base_map, projection
 
@@ -78,7 +84,6 @@ def build_query_dict(render_animation_dict):
 
     # used specifically for the animation logic
     if time_granularity == 'specific_weekdays' or weekdays != ():
-        specific_weekdays = render_animation_dict['weekdays']
         query_dict['specific_weekdays'] = 'on_specific_weekdays'
 
     # used specifically for the animation logic
@@ -180,13 +185,13 @@ def prepare_sql_query(query_dict):
     return query
 
 
-def make_sql_query(query):
+def make_sql_query(query, database):
     # connect to the database
     db = mysql.connector.connect(
         host="localhost",
         user="root",
         passwd="password",
-        database=self.database
+        database=database
         )
 
     # execute the query...
@@ -347,39 +352,50 @@ def compute_weight(map_type, weight, max_passenger):
     return weight
 
 
-def render_frames(query_results_dict, base_map):
+def render_frames(frame_dict):
 
     frames = []
+    single_map = frame_dict['single_map']
+    query_results_dict = frame_dict['query_results_dict']
+    base_map = frame_dict['base_map']
+    min_passenger = frame_dict['min_passenger']
+    max_passenger = frame_dict['max_passenger']
+    agg_per = frame_dict['agg_per']
+
     for query_date in query_results_dict:
         query_result = query_results_dict[query_date]
         for itinerary in query_result:
             zone_id_origin = Utils.convert_id_shape(itinerary[0])
             zone_id_destination = Utils.convert_id_shape(itinerary[1])
             if zone_id_origin == zone_id_destination:
-                colour = (141, 91, 67)
+                color = (141, 91, 67)
             else:
-                colour = (135, 162, 34)
+                color = (135, 162, 34)
+
+            weight = compute_weight(single_map, itinerary[2], max_passenger)
+            itinerary[2] = weight
 
             shape_origin = base_map.shape_dict[zone_id_origin]
             coords = shape_origin.center
-            weight = itinerary[2]
             point_to_render = classfile.PointOnMap(coords, weight, color)
-
             itinerary[0] = point_to_render
+
             shape_dest = base_map.shape_dict[zone_id_destination]
             target_coords = shape_dest.center
             itinerary[1] = target_coords
 
         for frame in range(0, 60):
-            map_rendered = base_map.copy()
+            map_rendered = base_map.map_file.copy()
             for itinerary in query_result:
                 point_to_render = itinerary[0]
                 target_coords = itinerary[1]
                 if frame == 0:
                     point_to_render.render_point_on_map(map_rendered)
                 else:
-                    point_to_render.interpolate_next_position(self, target_coords, 60, frame)
-
+                    point_to_render.interpolate_next_position(target_coords, 60, frame)
+                    point_to_render.render_point_on_map(map_rendered)
+            date_info = (agg_per, query_date)
+            display_specific_text_animation(map_rendered, date_info, single_map, min_passenger, max_passenger)
         frames.append(map_rendered)
 
     return frames
@@ -402,128 +418,9 @@ def make_video_animation(frames, image_size, map_type):
     animation.release()
 
 
-
-# Main flow of the script
-
-#shp_path = "/Users/acoullandreau/Desktop/Taxi_rides_DS/taxi_zones/taxi_zones.shp"
-
-#animation_dict_2018 = {'image_size': (1920, 1080), 'margins': (), 
-#                       'maps_to_render': ['total', 'Manhattan', 'Bronx', 'Queens', 'Staten Island', 'Brooklyn'],
-#                       'filter_on': [], 'zoom_on': [], 'filter_query_on_borough': False,
-#                       'title': 'General flow of passengers in 2018',
-#                       'db': 'nyc_taxi_rides', 'data_table': 'taxi_rides_2018',
-#                       'lookup_table': 'taxi_zone_lookup_table', 'aggregated_result': 'count',
-#                       'time_granularity': 'period', 'period':['2018-01-01', '2018-12-31'],
-#                       'weekdays': (), 'aggregate_period': False}
-
-
-animation_dict = {}
-shp_path = input("Enter the path of the shapefile: ")
-dict_input = input("Enter key and value separated by commas (,): ")
-
-key, value = dict_input.split(",")
-animation_dict[key] = value
-
-image_size = animation_dict['image_size']
-margin = animation_dict['margin']
-maps_to_render = animation_dict['maps_to_render']
-filter_on = animation_dict['filter_on']
-zoom_on = animation_dict['zoom_on']
-title = animation_dict['title']
-database = animation_dict['db']
-data_table = animation_dict['data_table']
-lookup_table = animation_dict['lookup_table']
-aggregated_result = animation_dict['aggregated_result']
-filter_query_on_borough = animation_dict['filter_query_on_borough']
-time_granularity = animation_dict['time_granularity']
-period = animation_dict['period']
-weekdays = animation_dict['weekdays']
-aggregate_period = animation_dict['aggregate_period']
-
-print('Building the base map...')
-
-# Draw the base map and keep it in a saved variable
-base_maps = []
-if len(map_to_render) == 1:
-    if map_to_render[0] == 'total':
-        zoom_on = []
-    else:
-        zoom_on = [map_to_render[0], 'borough']
-
-    # we want to render on a single map
-    draw_dict = {'image_size': image_size, 'margins': (), 'filter_on': [],
-                 'zoom_on': zoom_on}
-    base_map, projection = render_base_map(draw_dict)
-    base_maps.append((map_type, base_map, projection))
-
-else:
-    # we want to render multiple animations at once, for different base maps
-    for single_map in map_to_render:
-        if single_map == 'total':
-            zoom_on = []
-        else:
-            zoom_on = [single_map, 'borough']
-        draw_dict = {'image_size': image_size, 'margins': (), 'filter_on': [],
-                     'zoom_on': zoom_on}
-
-        base_map, projection = render_base_map(draw_dict)
-        base_maps.append((single_map, base_map, projection))
-
-# we define the render_animation_dict
-render_animation_dict = {'time_granularity': time_granularity,
-                         'period': period, 'weekdays': weekdays,
-                         'filter_query_on_borough': filter_query_on_borough,
-                         'database': database, 'data_table': data_table,
-                         'lookup_table': lookup_table,
-                         'aggregated_result': aggregated_result,
-                         'aggregate_period': aggregate_period}
-
-# we query the database
-print('Querying the dabase...')
-
-query_dict = build_query_dict(render_animation_dict)
-render_animation_dict['query_dict'] = query_dict
-
-print('Processing the query results...')
-query_results_dict = process_query_arg(render_animation_dict)
-
-# we find the min and max passengers for the whole year
-min_passenger = 999999999
-max_passenger = 0
-for query_date in query_results_dict:
-    temp_min, temp_max = compute_min_max_passengers(query_results_dict[query_date], 2)
-    if temp_min < min_passenger:
-        min_passenger = temp_min
-    if temp_max > max_passenger:
-        max_passenger = temp_max
-
-# we render the animation!
-for single_map, base_map, projection in base_maps:
-    print('Rendering {}...'.format(single_map))
-    frames = render_frames(query_results_dict, base_map)
-    make_video_animation(frames, image_size, single_map)
-    print('Animation for {} rendered...'.format(single_map))
-
-
-
-
-
-
-
-
-
-
-
-        date_info = (agg_per, query_date)
-        display_specific_text_animation(rendered_frame, date_info, map_type, min_pass, max_pass)
-
-
-
-
-
 def display_specific_text_animation(rendered_frame, date_info, map_type, min_pass, max_pass):
     # note that these position are based on an image size of [1920, 1080]
-    font = 
+    font = cv2.FONT_HERSHEY_SIMPLEX
     agg_per = date_info[0]
     date = date_info[1]
 
@@ -585,3 +482,110 @@ def display_general_information_text(image, map_type, video_title):
     # displays the title of the video
     # cv2.putText(image, video_title, (500, 1050), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
+
+# Main flow of the script
+
+# shp_path = "/Users/acoullandreau/Desktop/Taxi_rides_DS/taxi_zones/taxi_zones.shp"
+
+# animation_dict_2018 = {'image_size': (1920, 1080), 'margins': (),
+#                       'maps_to_render': ['total', 'Manhattan', 'Bronx', 'Queens', 'Staten Island', 'Brooklyn'],
+#                       'filter_on': [], 'zoom_on': [], 'filter_query_on_borough': False,
+#                       'title': 'General flow of passengers in 2018',
+#                       'db': 'nyc_taxi_rides', 'data_table': 'taxi_rides_2018',
+#                       'lookup_table': 'taxi_zone_lookup_table', 'aggregated_result': 'count',
+#                       'time_granularity': 'period', 'period':['2018-01-01', '2018-12-31'],
+#                       'weekdays': (), 'aggregate_period': False}
+
+
+animation_dict = {}
+shp_path = input("Enter the path of the shapefile: ")
+dict_input = input("Enter key and value separated by commas (,): ")
+
+key, value = dict_input.split(",")
+animation_dict[key] = value
+
+image_size = animation_dict['image_size']
+margin = animation_dict['margin']
+maps_to_render = animation_dict['maps_to_render']
+filter_on = animation_dict['filter_on']
+zoom_on = animation_dict['zoom_on']
+title = animation_dict['title']
+database = animation_dict['db']
+data_table = animation_dict['data_table']
+lookup_table = animation_dict['lookup_table']
+aggregated_result = animation_dict['aggregated_result']
+filter_query_on_borough = animation_dict['filter_query_on_borough']
+time_granularity = animation_dict['time_granularity']
+period = animation_dict['period']
+weekdays = animation_dict['weekdays']
+aggregate_period = animation_dict['aggregate_period']
+
+print('Building the base map...')
+
+# Draw the base map and keep it in a saved variable
+base_maps = []
+if len(maps_to_render) == 1:
+    if maps_to_render[0] == 'total':
+        zoom_on = []
+    else:
+        zoom_on = [maps_to_render[0], 'borough']
+
+    # we want to render on a single map
+    draw_dict = {'image_size': image_size, 'margins': (), 'filter_on': [],
+                 'zoom_on': zoom_on, 'map_type': maps_to_render[0],
+                 'title': title}
+    base_map, projection = render_base_map(draw_dict)
+    base_maps.append((maps_to_render[0], base_map, projection))
+
+else:
+    # we want to render multiple animations at once, for different base maps
+    for single_map in maps_to_render:
+        if single_map == 'total':
+            zoom_on = []
+        else:
+            zoom_on = [single_map, 'borough']
+        draw_dict = {'image_size': image_size, 'margins': (), 'filter_on': [],
+                     'zoom_on': zoom_on, 'map_type': single_map, 'title': title}
+
+        base_map, projection = render_base_map(draw_dict)
+        base_maps.append((single_map, base_map, projection))
+
+# we define the render_animation_dict
+render_animation_dict = {'time_granularity': time_granularity,
+                         'period': period, 'weekdays': weekdays,
+                         'filter_query_on_borough': filter_query_on_borough,
+                         'database': database, 'data_table': data_table,
+                         'lookup_table': lookup_table,
+                         'aggregated_result': aggregated_result,
+                         'aggregate_period': aggregate_period}
+
+# we query the database
+print('Querying the dabase...')
+
+query_dict = build_query_dict(render_animation_dict)
+render_animation_dict['query_dict'] = query_dict
+
+print('Processing the query results...')
+query_results_dict = process_query_arg(render_animation_dict)
+
+# we find the min and max passengers for the whole year
+min_passenger = 999999999
+max_passenger = 0
+for query_date in query_results_dict:
+    temp_min, temp_max = compute_min_max_passengers(query_results_dict[query_date], 2)
+    if temp_min < min_passenger:
+        min_passenger = temp_min
+    if temp_max > max_passenger:
+        max_passenger = temp_max
+
+frame_dict = {'query_results_dict': query_results_dict,
+              'base_map': base_map, 'min_passenger': min_passenger,
+              'max_passenger': max_passenger, 'agg_per': aggregate_period}
+
+# we render the animation!
+for single_map, base_map, projection in base_maps:
+    print('Rendering {}...'.format(single_map))
+    frame_dict['single_map'] = single_map
+    frames = render_frames(frame_dict)
+    make_video_animation(frames, image_size, single_map)
+    print('Animation for {} rendered...'.format(single_map))

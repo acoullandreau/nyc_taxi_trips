@@ -403,23 +403,27 @@ def prepare_sql_query(query_dict):
     return query
 
 
-def process_query_results(query_results, base_shapefile):
+def process_query_results(query_results, base_map):
 
+    in_shape_ids = []
     incoming_flow = {}
+    out_shape_ids = []
     outgoing_flow = {}
 
     for itinerary in query_results:
         origin_id = Utils.convert_id(itinerary[0])
         destination_id = Utils.convert_id(itinerary[1])
         weight = itinerary[2]
-        shape_origin = classfile.ShapeOnMap(base_shapefile.shapefile, origin_id)
-        shape_destination = classfile.ShapeOnMap(base_shapefile.shapefile, destination_id)
+        shape_origin = base_map.shape_dict[origin_id]
+        shape_destination = base_map.shape_dict[destination_id]
         # We build a dictionary of outgoing traffic
-        if shape_origin not in outgoing_flow:
+        if origin_id not in out_shape_ids:
+            out_shape_ids.append(origin_id)
             outgoing_flow[shape_origin] = []
         outgoing_flow[shape_origin].append((shape_destination, weight))
         # We build a dictionary of incoming traffic
-        if shape_destination not in incoming_flow:
+        if destination_id not in in_shape_ids:
+            in_shape_ids.append(destination_id)
             incoming_flow[shape_destination] = []
         incoming_flow[shape_destination].append((shape_origin, weight))
 
@@ -490,13 +494,14 @@ def render_maps(flow_dict, flow_dir, base_map, file_name):
                     colors.append(render_color)
                 shape_to_color.fill_in_shape(map_rendered)
                 # we draw again the boundaries of the shape after filling it in
-                #pts = np.array(shape_to_color.points, np.int32)
-                #cv2.polylines(map_rendered, [pts], True, (255, 255, 255), 1, cv2.LINE_AA)
+                pts = np.array(shape_to_color.points, np.int32)
+                cv2.polylines(map_rendered, [pts], True, (255, 255, 255), 1, cv2.LINE_AA)
 
         # outline the focused shape
         zone_shape.color_line = [95, 240, 255]
         zone_shape.line_thick = 3
-        #map_rendered.render_map()
+        pts = np.array(zone_shape.points, np.int32)
+        cv2.polylines(map_rendered, [pts], True, zone_shape.color_line, zone_shape.line_thick, cv2.LINE_AA)
         #display the legend
         display_specific_text(map_rendered, zone_id, zone_name, min_passenger, max_passenger, colors)
 
@@ -591,11 +596,10 @@ if query_dict['date'] == 'loop_through_period':
 query = prepare_sql_query(query_dict)
 query_results = make_sql_query(query, database)
 
-# we process the query results
-outgoing_flow, incoming_flow = process_query_results(query_results,
-                                                     base_shapefile)
-
 for single_map, base_map, projection in base_maps:
+    # we process the query results
+    outgoing_flow, incoming_flow = process_query_results(query_results,
+                                                         base_map)
     print('Rendering {}...'.format(single_map))
     if single_map == 'total':
         if time_granularity == 'weekdays_vs_weekends':

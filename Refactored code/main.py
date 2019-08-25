@@ -192,15 +192,9 @@ def make_sql_query(query, database):
     return results
 
 
-def parse_shapefile(shp_path, filter_on):
+def parse_shapefile(shp_path):
     base_shapefile = classfile.ShapeFile(shp_path)
     base_shapefile.build_shape_dict(base_shapefile.df_sf)
-
-    if filter_on:
-        filter_cond = filter_on[0]
-        filter_attr = filter_on[1]
-        df_filtered = base_shapefile.filter_shape_to_render(filter_cond, filter_attr)
-        base_shapefile.build_shape_dict(df_filtered)
 
     return base_shapefile
 
@@ -466,6 +460,12 @@ def render_base_map(draw_dict):
     base_map = classfile.Map(base_shapefile, image_size)
     projection = classfile.Projection(base_map, margins)
 
+    if filter_on:
+        filter_cond = filter_on[0]
+        filter_attr = filter_on[1]
+        df_filtered = base_shapefile.filter_shape_to_render(filter_cond, filter_attr)
+        base_map.shape_dict_filt = base_map.build_shape_dict(df_filtered)
+
     if zoom_on != []:
         zoom_on_cond = zoom_on[0]
         zoom_on_attr = zoom_on[1]
@@ -477,6 +477,10 @@ def render_base_map(draw_dict):
         projection = classfile.Projection(zoom_map, margins)
 
     base_map.projection = projection
+    for zone_id in base_map.shape_dict_filt:
+        shape = base_map.shape_dict_filt[zone_id]
+        shape.project_shape_coords(base_map.projection)
+
     for zone_id in base_map.shape_dict:
         shape = base_map.shape_dict[zone_id]
         shape.project_shape_coords(base_map.projection)
@@ -540,13 +544,13 @@ aggregated_result = conf_data['aggregated_result']
 filter_query_on_borough = conf_data['filter_query_on_borough']
 time_granularity = conf_data['time_granularity']
 period = conf_data['period']
-weekdays = conf_data['weekdays']
+weekdays = tuple(conf_data['weekdays'])
 aggregate_period = conf_data['aggregate_period']
 
 print('Building the base map...')
 
 # Parse the shapefile
-base_shapefile = parse_shapefile(shp_path, filter_on)
+base_shapefile = parse_shapefile(shp_path)
 
 # Draw the base map and keep it in a saved variable
 base_maps = []
@@ -559,9 +563,9 @@ if len(maps_to_render) == 1:
 
     # we want to render on a single map
     draw_dict = {'image_size': image_size, 'margins': margins,
-                 'filter_on': filter_on, 'zoom_on': zoom_on,
-                 'map_type': maps_to_render[0],
-                 'title': title, 'base_shapefile': base_shapefile}
+                 'zoom_on': zoom_on, 'filter_on': filter_on,
+                 'map_type': maps_to_render[0], 'title': title,
+                 'base_shapefile': base_shapefile}
     base_map, projection = render_base_map(draw_dict)
     base_maps.append([maps_to_render[0], base_map, projection])
 
@@ -573,8 +577,8 @@ else:
         else:
             zoom_on = [single_map, 'borough']
         draw_dict = {'image_size': image_size, 'margins': margins,
-                     'filter_on': filter_on, 'zoom_on': zoom_on,
-                     'map_type': single_map, 'title': title,
+                     'zoom_on': zoom_on, 'filter_on': filter_on,
+                     'map_type': single_map, 'title': title, 
                      'base_shapefile': base_shapefile}
         base_map, projection = render_base_map(draw_dict)
         base_maps.append([single_map, base_map, projection])
@@ -589,7 +593,7 @@ render_animation_dict = {'time_granularity': time_granularity,
                          'aggregate_period': aggregate_period}
 
 # we query the database
-print('Querying the dabase...')
+print('Querying the database...')
 
 query_dict = build_query_dict(render_animation_dict)
 render_animation_dict['query_dict'] = query_dict

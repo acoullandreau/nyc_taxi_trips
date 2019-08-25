@@ -34,6 +34,8 @@ class Map:
     def __init__(self, shapefile, image_size, background_color=[0, 0, 0]):
         self.shapefile = shapefile
         self.shape_dict = self.build_shape_dict(self.shapefile.df_sf)
+        # different from shape_dict if filter on the base map but not on the data to plot
+        self.shape_dict_filt = self.build_shape_dict(self.shapefile.df_sf)
         self.image_size = image_size
         self.max_bound = self.find_max_coords()[0]
         self.min_bound = self.find_max_coords()[1]
@@ -77,8 +79,8 @@ class Map:
         base_map[:, :] = self.background_color
 
         # we draw each shape of the dictionary on the blank image
-        for shape_id in self.shape_dict:
-            shape = self.shape_dict[shape_id]
+        for shape_id in self.shape_dict_filt:
+            shape = self.shape_dict_filt[shape_id]
             points = shape.points
             pts = np.array(points, np.int32)
             cv2.polylines(base_map, [pts], True, shape.color_line,
@@ -222,7 +224,7 @@ class ShapeFile:
         self.path = file_path
         self.shapefile = self.sf_reader(self.path)
         self.df_sf = self.shp_to_df()
-        self.shape_dict = self.build_shape_dict(self.df_sf)
+        self.shape_dict_sf = self.build_shape_dict(self.df_sf)
 
     def sf_reader(self, path):
         shapefile = shp.Reader(self.path)
@@ -255,10 +257,12 @@ class ShapeFile:
 
     def build_shape_dict(self, ref_df):
         index_list = ref_df.index.tolist()
-        self.shape_dict = {}
+        shape_dict = {}
         for shape_id in index_list:
             shape = ShapeOnMap(self.shapefile, shape_id)
-            self.shape_dict[shape_id] = shape
+            shape_dict[shape_id] = shape
+
+        return shape_dict
 
 
 class ShapeOnMap:

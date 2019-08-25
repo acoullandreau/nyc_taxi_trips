@@ -33,7 +33,7 @@ class Map:
 
     def __init__(self, shapefile, image_size, background_color=[0, 0, 0]):
         self.shapefile = shapefile
-        self.shape_dict = shapefile.shape_dict
+        self.shape_dict = self.build_shape_dict(self.shapefile.df_sf)
         self.image_size = image_size
         self.max_bound = self.find_max_coords()[0]
         self.min_bound = self.find_max_coords()[1]
@@ -41,12 +41,20 @@ class Map:
         self.map_file = None
         self.background_color = background_color  # Default black background
 
+    def build_shape_dict(self, ref_df):
+        index_list = ref_df.index.tolist()
+        shape_dict = {}
+        for shape_id in index_list:
+            shape = ShapeOnMap(self.shapefile.shapefile, shape_id)
+            shape_dict[shape_id] = shape
+
+        return shape_dict
+
     def find_max_coords(self):
 
         all_max_bound = []
         all_min_bound = []
         shape_dict = self.shape_dict
-
         for zone_id in shape_dict:
             zone_shape = shape_dict[zone_id]
             max_bound_zone = zone_shape.max_bound

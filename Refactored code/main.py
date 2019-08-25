@@ -412,8 +412,9 @@ def process_query_arg(render_animation_dict):
     return query_results_dict
 
 
-def process_query_results(query_results_dict, single_map, flag):
+def process_query_results(query_results_dict, map_item):
 
+    processed_query_results_dict = {}
     # we find the min and max passengers for the whole year
     min_passenger = 999999999
     max_passenger = 0
@@ -424,46 +425,40 @@ def process_query_results(query_results_dict, single_map, flag):
         if temp_max > max_passenger:
             max_passenger = temp_max
 
-    if flag is True:
-        # we transform the query_results_dict to use instances of the PointOnMap class
-        for query_date in query_results_dict:
-            query_result = query_results_dict[query_date]
-            for itinerary in query_result:
-                zone_id_origin = Utils.convert_id(itinerary[0])
-                zone_id_destination = Utils.convert_id(itinerary[1])
-                if zone_id_origin == zone_id_destination:
-                    color = (141, 91, 67)
-                else:
-                    color = (135, 162, 34)
+    # we transform the query_results_dict to use instances of the PointOnMap class
+    for query_date in query_results_dict:
+        query_result = query_results_dict[query_date]
+        processed_query_results_dict[query_date] = []
+        for itinerary in query_result:
+            processed_itinerary = []
+            zone_id_origin = Utils.convert_id(itinerary[0])
+            zone_id_destination = Utils.convert_id(itinerary[1])
+            if zone_id_origin == zone_id_destination:
+                color = (141, 91, 67)
+            else:
+                color = (135, 162, 34)
 
-                weight = compute_weight(single_map, itinerary[2], max_passenger)
-                itinerary[2] = weight
+            weight = compute_weight(map_item[0], itinerary[2], max_passenger)
 
-                shape_origin = base_map.shape_dict[zone_id_origin]
-                coords = shape_origin.center
-                point_to_render = classfile.PointOnMap(coords, weight, color)
-                itinerary[0] = point_to_render
+            shape_origin = map_item[1].shape_dict[zone_id_origin]
+            coords = shape_origin.center
+            point_to_render = classfile.PointOnMap(coords, weight, color)
+            processed_itinerary.append(point_to_render)
 
-                shape_dest = base_map.shape_dict[zone_id_destination]
-                target_coords = shape_dest.center
-                itinerary[1] = target_coords
-    else:
-        for query_date in query_results_dict:
-            query_result = query_results_dict[query_date]
-            for itinerary in query_result:
-                point_to_render = itinerary[0]
-                weight = compute_weight(single_map, itinerary[2], max_passenger)
-                itinerary[2] = weight
-                point_to_render.weight = weight
+            shape_dest = map_item[1].shape_dict[zone_id_destination]
+            target_coords = shape_dest.center
+            processed_itinerary.append(target_coords)
 
-    return query_results_dict, min_passenger, max_passenger
+            processed_itinerary.append(weight)
+            processed_query_results_dict[query_date].append(processed_itinerary)
+
+    return processed_query_results_dict, min_passenger, max_passenger
 
 
 def render_base_map(draw_dict):
     base_shapefile = draw_dict['base_shapefile']
     image_size = draw_dict['image_size']
     margins = draw_dict['margins']
-    filter_on = draw_dict['filter_on']
     zoom_on = draw_dict['zoom_on']
     map_type = draw_dict['map_type']
     title = draw_dict['title']
@@ -477,12 +472,14 @@ def render_base_map(draw_dict):
         zoom_shapefile = classfile.ShapeFile(shp_path)
         df_zoom = zoom_shapefile.filter_shape_to_render(zoom_on_cond, zoom_on_attr)
         zoom_shapefile.build_shape_dict(df_zoom)
+        zoom_shapefile.df_sf = df_zoom
         zoom_map = classfile.Map(zoom_shapefile, image_size)
         projection = classfile.Projection(zoom_map, margins)
 
+    base_map.projection = projection
     for zone_id in base_map.shape_dict:
         shape = base_map.shape_dict[zone_id]
-        shape.project_shape_coords(projection)
+        shape.project_shape_coords(base_map.projection)
 
     base_map.render_map()
     display_general_information_text(base_map.map_file, map_type, title)
@@ -533,10 +530,6 @@ else:
     margins = [0, 0, 0, 0]
 
 maps_to_render = conf_data['maps_to_render']
-if 'total' in maps_to_render:
-    idx_total = maps_to_render.index('total')
-    maps_to_render[0], maps_to_render[idx_total] = maps_to_render[idx_total], maps_to_render[0]
-
 filter_on = conf_data['filter_on']
 zoom_on = conf_data['zoom_on']
 title = conf_data['title']
@@ -570,7 +563,7 @@ if len(maps_to_render) == 1:
                  'map_type': maps_to_render[0],
                  'title': title, 'base_shapefile': base_shapefile}
     base_map, projection = render_base_map(draw_dict)
-    base_maps.append((maps_to_render[0], base_map, projection))
+    base_maps.append([maps_to_render[0], base_map, projection])
 
 else:
     # we want to render multiple animations at once, for different base maps
@@ -583,9 +576,8 @@ else:
                      'filter_on': filter_on, 'zoom_on': zoom_on,
                      'map_type': single_map, 'title': title,
                      'base_shapefile': base_shapefile}
-
         base_map, projection = render_base_map(draw_dict)
-        base_maps.append((single_map, base_map, projection))
+        base_maps.append([single_map, base_map, projection])
 
 # we define the render_animation_dict
 render_animation_dict = {'time_granularity': time_granularity,
@@ -605,32 +597,17 @@ render_animation_dict['query_dict'] = query_dict
 print('Processing the query results...')
 query_results_dict = process_query_arg(render_animation_dict)
 
-result_already_processed = False
-flag = True
-
 # we render the animation!
-for single_map, base_map, projection in base_maps:
-    if single_map == 'total':
-        query_results_dict, min_pass, max_pass = process_query_results(query_results_dict,
-                                                                       single_map, flag)
-        result_already_processed = True
-        flag = False
+for map_item in base_maps:
+    processed_query_results_dict, min_pass, max_pass = process_query_results(query_results_dict,
+                                                                             map_item)
 
-    else:
-        if result_already_processed is False:
-            query_results_dict, min_pass, max_pass = process_query_results(query_results_dict,
-                                                                           single_map, flag)
-            result_already_processed = True
-            flag = False
-        else:
-            query_results_dict, min_pass, max_pass = process_query_results(query_results_dict,
-                                                                           single_map, flag)
+    frame_dict = {'query_results_dict': processed_query_results_dict,
+                  'single_map': map_item[0],'base_map': map_item[1],
+                  'min_passenger': min_pass, 'max_passenger': max_pass,
+                  'agg_per': aggregate_period}
 
-    frame_dict = {'query_results_dict': query_results_dict,
-                  'base_map': base_map, 'min_passenger': min_pass,
-                  'max_passenger': max_pass, 'agg_per': aggregate_period}
-    print('Rendering {}...'.format(single_map))
-    frame_dict['single_map'] = single_map
+    print('Rendering {}...'.format(map_item[0]))
     frames = render_frames(frame_dict)
-    make_video_animation(frames, image_size, single_map)
-    print('Animation for {} rendered.'.format(single_map))
+    make_video_animation(frames, image_size, map_item[0])
+    print('Animation for {} rendered.'.format(map_item[0]))

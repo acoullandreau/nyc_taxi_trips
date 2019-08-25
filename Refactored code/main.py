@@ -1,4 +1,5 @@
 import cv2
+import json
 import mysql.connector
 import pandas as pd
 
@@ -170,9 +171,9 @@ def make_video_animation(frames, image_size, map_type):
 def make_sql_query(query, database):
     # connect to the database
     db = mysql.connector.connect(
-        host="localhost",
+        host="192.168.1.29",
         user="root",
-        passwd="password",
+        passwd="dllpsax00",
         database=database
         )
 
@@ -194,7 +195,8 @@ def parse_shapefile(shp_path, filter_on):
     base_shapefile = classfile.ShapeFile(shp_path)
     base_shapefile.build_shape_dict(base_shapefile.df_sf)
 
-    if filter_on != []:
+    if filter_on:
+        print('Test')
         filter_cond = filter_on[0]
         filter_attr = filter_on[1]
         df_filtered = base_shapefile.filter_shape_to_render(filter_cond, filter_attr)
@@ -390,7 +392,7 @@ def process_query_arg(render_animation_dict):
         if specific_weekdays == 'on_specific_weekdays':
 
             # we check if the date of the daterange matches the weekday(s) we target
-            date = pd.Timestamp(query_dict['date'])
+            date = pd.to_datetime(query_dict['date'])
 
             if date.dayofweek in weekdays:
                 query = prepare_sql_query(query_dict)
@@ -490,40 +492,30 @@ def render_frames(frame_dict):
 
 # Main flow of the script
 
-# shp_path = "/Users/acoullandreau/Desktop/Taxi_rides_DS/taxi_zones/taxi_zones.shp"
+with open('conf.json', encoding='utf-8') as config_file:
+    conf_data = json.load(config_file)
 
-# animation_dict_2018 = {'image_size': (1920, 1080), 'margins': (),
-#                       'maps_to_render': ['total', 'Manhattan', 'Bronx', 'Queens', 'Staten Island', 'Brooklyn'],
-#                       'filter_on': [], 'zoom_on': [], 'filter_query_on_borough': False,
-#                       'title': 'General flow of passengers in 2018',
-#                       'db': 'nyc_taxi_rides', 'data_table': 'taxi_rides_2018',
-#                       'lookup_table': 'taxi_zone_lookup_table', 'aggregated_result': 'count',
-#                       'time_granularity': 'period', 'period':['2018-01-01', '2018-12-31'],
-#                       'weekdays': (), 'aggregate_period': False}
+shp_path = conf_data['shp_path']
+image_size = conf_data['image_size']
 
+if conf_data['margins']:
+    margins = conf_data['margins']
+else:
+    margins = [0, 0, 0, 0]
 
-animation_dict = {}
-shp_path = input("Enter the path of the shapefile: ")
-dict_input = input("Enter key and value separated by commas (,): ")
-
-key, value = dict_input.split(",")
-animation_dict[key] = value
-
-image_size = animation_dict['image_size']
-margin = animation_dict['margin']
-maps_to_render = animation_dict['maps_to_render']
-filter_on = animation_dict['filter_on']
-zoom_on = animation_dict['zoom_on']
-title = animation_dict['title']
-database = animation_dict['db']
-data_table = animation_dict['data_table']
-lookup_table = animation_dict['lookup_table']
-aggregated_result = animation_dict['aggregated_result']
-filter_query_on_borough = animation_dict['filter_query_on_borough']
-time_granularity = animation_dict['time_granularity']
-period = animation_dict['period']
-weekdays = animation_dict['weekdays']
-aggregate_period = animation_dict['aggregate_period']
+maps_to_render = conf_data['maps_to_render']
+filter_on = conf_data['filter_on']
+zoom_on = conf_data['zoom_on']
+title = conf_data['title']
+database = conf_data['db']
+data_table = conf_data['data_table']
+lookup_table = conf_data['lookup_table']
+aggregated_result = conf_data['aggregated_result']
+filter_query_on_borough = conf_data['filter_query_on_borough']
+time_granularity = conf_data['time_granularity']
+period = conf_data['period']
+weekdays = conf_data['weekdays']
+aggregate_period = conf_data['aggregate_period']
 
 print('Building the base map...')
 
@@ -540,8 +532,9 @@ if len(maps_to_render) == 1:
         zoom_on = [maps_to_render[0], 'borough']
 
     # we want to render on a single map
-    draw_dict = {'image_size': image_size, 'margins': (), 'filter_on': [],
-                 'zoom_on': zoom_on, 'map_type': maps_to_render[0],
+    draw_dict = {'image_size': image_size, 'margins': margins,
+                 'filter_on': filter_on, 'zoom_on': zoom_on,
+                 'map_type': maps_to_render[0],
                  'title': title, 'base_shapefile': base_shapefile}
     base_map, projection = render_base_map(draw_dict)
     base_maps.append((maps_to_render[0], base_map, projection))
@@ -553,8 +546,9 @@ else:
             zoom_on = []
         else:
             zoom_on = [single_map, 'borough']
-        draw_dict = {'image_size': image_size, 'margins': (), 'filter_on': [],
-                     'zoom_on': zoom_on, 'map_type': single_map, 'title': title,
+        draw_dict = {'image_size': image_size, 'margins': margins,
+                     'filter_on': filter_on, 'zoom_on': zoom_on,
+                     'map_type': single_map, 'title': title,
                      'base_shapefile': base_shapefile}
 
         base_map, projection = render_base_map(draw_dict)

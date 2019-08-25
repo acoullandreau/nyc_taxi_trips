@@ -113,7 +113,7 @@ class PointOnMap:
 
 class Projection:
 
-    def __init__(self, map_to_scale, margin=(0, 0, 0, 0)):
+    def __init__(self, map_to_scale, margin=[0, 0, 0, 0]):
         self.image_size = map_to_scale.image_size
         self.map_max_bound = map_to_scale.max_bound
         self.map_min_bound = map_to_scale.min_bound

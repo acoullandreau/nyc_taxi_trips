@@ -1,0 +1,19 @@
+{
+    "shp_path":"/Users/acoullandreau/Downloads/taxi_zones/taxi_zones.shp",
+    "image_size":[1920, 1080],
+    "margins":[],
+    "maps_to_render":["total", "Manhattan", "Bronx", "Queens", "Staten Island", "Brooklyn"],
+    "filter_on":[],
+    "zoom_on":[],
+    "filter_query_on_borough":"False",
+    "title":"General flow of passengers in 2018",
+    "db":"nyc_taxi_rides",
+    "data_table":"taxi_rides_2018",
+    "lookup_table":"taxi_zone_lookup_table",
+    "aggregated_result":"count",
+    "time_granularity":"period",
+    "period":["2018-01-01", "2018-01-03"],
+    "weekdays":[],
+    "aggregate_period":"False"
+
+}

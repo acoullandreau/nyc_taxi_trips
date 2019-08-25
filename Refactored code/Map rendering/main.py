@@ -1,5 +1,7 @@
 import cv2
+import json
 import mysql.connector
+import numpy as np
 import pandas as pd
 
 import classfile
@@ -44,7 +46,7 @@ def build_query_dict(render_dict):
         query_dict['date'] = 'loop_through_period'
 
     # used specifically for the animation logic
-    if time_granularity == 'specific_weekdays' or weekdays != ():
+    if time_granularity == 'specific_weekdays' or weekdays != []:
         query_dict['specific_weekdays'] = 'on_specific_weekdays'
 
     # used specifically for the animation logic
@@ -234,9 +236,9 @@ def find_names(zone_shape, base_map):
 def make_sql_query(query, database):
     # connect to the database
     db = mysql.connector.connect(
-        host="localhost",
+        host="192.168.1.29",
         user="root",
-        passwd="password",
+        passwd="dllpsax00",
         database=database
         )
 
@@ -247,22 +249,16 @@ def make_sql_query(query, database):
     # ...and store the output
     results = []
     for result in cursor:
-        result.append(result)
+        results.append(list(result))
 
     cursor.close()
 
     return results
 
 
-def parse_shapefile(shp_path, filter_on):
+def parse_shapefile(shp_path):
     base_shapefile = classfile.ShapeFile(shp_path)
     base_shapefile.build_shape_dict(base_shapefile.df_sf)
-
-    if filter_on != []:
-        filter_cond = filter_on[0]
-        filter_attr = filter_on[1]
-        df_filtered = base_shapefile.filter_shape_to_render(filter_cond, filter_attr)
-        base_shapefile.build_shape_dict(df_filtered)
 
     return base_shapefile
 
@@ -413,11 +409,11 @@ def process_query_results(query_results, base_shapefile):
     outgoing_flow = {}
 
     for itinerary in query_results:
-        origin_id = convert_id_shape(itinerary[0])
-        destination_id = convert_id_shape(itinerary[1])
+        origin_id = Utils.convert_id(itinerary[0])
+        destination_id = Utils.convert_id(itinerary[1])
         weight = itinerary[2]
-        shape_origin = classfile.ShapeOnMap(base_shapefile, origin_id)
-        shape_destination = classfile.ShapeOnMap(base_shapefile, destination_id)
+        shape_origin = classfile.ShapeOnMap(base_shapefile.shapefile, origin_id)
+        shape_destination = classfile.ShapeOnMap(base_shapefile.shapefile, destination_id)
         # We build a dictionary of outgoing traffic
         if shape_origin not in outgoing_flow:
             outgoing_flow[shape_origin] = []
@@ -434,7 +430,6 @@ def render_base_map(draw_dict):
     base_shapefile = draw_dict['base_shapefile']
     image_size = draw_dict['image_size']
     margins = draw_dict['margins']
-    filter_on = draw_dict['filter_on']
     zoom_on = draw_dict['zoom_on']
     map_type = draw_dict['map_type']
     title = draw_dict['title']
@@ -442,21 +437,33 @@ def render_base_map(draw_dict):
     base_map = classfile.Map(base_shapefile, image_size)
     projection = classfile.Projection(base_map, margins)
 
+    if filter_on:
+        filter_cond = filter_on[0]
+        filter_attr = filter_on[1]
+        df_filtered = base_shapefile.filter_shape_to_render(filter_cond, filter_attr)
+        base_map.shape_dict_filt = base_map.build_shape_dict(df_filtered)
+
     if zoom_on != []:
         zoom_on_cond = zoom_on[0]
         zoom_on_attr = zoom_on[1]
         zoom_shapefile = classfile.ShapeFile(shp_path)
         df_zoom = zoom_shapefile.filter_shape_to_render(zoom_on_cond, zoom_on_attr)
         zoom_shapefile.build_shape_dict(df_zoom)
+        zoom_shapefile.df_sf = df_zoom
         zoom_map = classfile.Map(zoom_shapefile, image_size)
         projection = classfile.Projection(zoom_map, margins)
 
+    base_map.projection = projection
+    for zone_id in base_map.shape_dict_filt:
+        shape = base_map.shape_dict_filt[zone_id]
+        shape.project_shape_coords(base_map.projection)
+
     for zone_id in base_map.shape_dict:
         shape = base_map.shape_dict[zone_id]
-        shape.project_shape_coords(projection)
+        shape.project_shape_coords(base_map.projection)
 
     base_map.render_map()
-    base_map.map_file = display_general_information_text(base_map.map_file, map_type, title)
+    display_general_information_text(base_map.map_file, map_type, title)
 
     return base_map, projection
 
@@ -466,7 +473,7 @@ def render_maps(flow_dict, flow_dir, base_map, file_name):
     for zone_shape in flow_dict:
         map_rendered = base_map.map_file.copy()
         zone_name = find_names(zone_shape, base_map)
-        zone_id = convert_id_shape(zone_shape.shape_id, inverse=True)
+        zone_id = Utils.convert_id(zone_shape.shape_id, inverse=True)
         map_title = '{}_{}_{}_{}_{}'.format(file_name[0], zone_id, zone_name,
                                             flow_dir, file_name[1])
         trips_list = flow_dict[zone_shape]
@@ -483,13 +490,13 @@ def render_maps(flow_dict, flow_dir, base_map, file_name):
                     colors.append(render_color)
                 shape_to_color.fill_in_shape(map_rendered)
                 # we draw again the boundaries of the shape after filling it in
-                pts = np.array(shape_to_color.points, np.int32)
-                cv2.polylines(map_rendered, [pts], True, (255, 255, 255), 1, cv2.LINE_AA)
+                #pts = np.array(shape_to_color.points, np.int32)
+                #cv2.polylines(map_rendered, [pts], True, (255, 255, 255), 1, cv2.LINE_AA)
 
         # outline the focused shape
         zone_shape.color_line = [95, 240, 255]
         zone_shape.line_thick = 3
-    
+        #map_rendered.render_map()
         #display the legend
         display_specific_text(map_rendered, zone_id, zone_name, min_passenger, max_passenger, colors)
 
@@ -497,43 +504,32 @@ def render_maps(flow_dict, flow_dir, base_map, file_name):
         cv2.imwrite(('{}.png').format(map_title), map_rendered)
 
 
-
-
 # Main flow of the script
 
-# shp_path = "/Users/acoullandreau/Desktop/Taxi_rides_DS/taxi_zones/taxi_zones.shp"
+with open('conf.json', encoding='utf-8') as config_file:
+    conf_data = json.load(config_file)
 
-# chlor_map_dict = {'image_size': (1920, 1080),'margins': (), 'db':'nyc_taxi_rides',
-#                   'maps_to_render': ['total', 'Manhattan', 'Bronx', 'Queens', 'Staten Island', 'Brooklyn'],
-#                   'filter_on': [], 'zoom_on': [], 'filter_query_on_borough': False,
-#                   'data_table':'passenger_count_2018','lookup_table':'taxi_zone_lookup_table',
-#                   'aggregated_result':'count', 'weekdays_vs_weekends':False,
-#                   'period':['2018-01-01','2018-01-31'], 'title':'Chloropeth map over the year'}
+shp_path = conf_data['shp_path']
+image_size = conf_data['image_size']
 
+if conf_data['margins']:
+    margins = conf_data['margins']
+else:
+    margins = [0, 0, 0, 0]
 
-chlor_map_dict = {}
-shp_path = input("Enter the path of the shapefile: ")
-dict_input = input("Enter key and value separated by commas (,): ")
+maps_to_render = conf_data['maps_to_render']
+filter_on = conf_data['filter_on']
+zoom_on = conf_data['zoom_on']
+title = conf_data['title']
+database = conf_data['db']
+data_table = conf_data['data_table']
+lookup_table = conf_data['lookup_table']
+aggregated_result = conf_data['aggregated_result']
+filter_query_on_borough = conf_data['filter_query_on_borough']
+period = conf_data['period']
+weekdays_vs_weekends = conf_data['weekdays_vs_weekends']
 
-key, value = dict_input.split(",")
-animation_dict[key] = value
-
-# we extract the variables from the input dictionary
-image_size = chlor_map_dict['image_size']
-margin = chlor_map_dict['margin']
-maps_to_render = chlor_map_dict['maps_to_render']
-filter_on = chlor_map_dict['filter_on']
-zoom_on = chlor_map_dict['zoom_on']
-title = chlor_map_dict['title']
-database = chlor_map_dict['db']
-data_table = chlor_map_dict['data_table']
-lookup_table = chlor_map_dict['lookup_table']
-aggregated_result = chlor_map_dict['aggregated_result']
-filter_query_on_borough = chlor_map_dict['filter_query_on_borough']
-period = chlor_map_dict['period']
-weekdays_vs_weekends = chlor_map_dict['weekdays_vs_weekends']
-
-if chlor_map_dict['weekdays_vs_weekends'] is True:
+if weekdays_vs_weekends is True:
     time_granularity = 'weekdays_vs_weekends'
 else:
     time_granularity = 'period'
@@ -541,8 +537,7 @@ else:
 print('Building the base map...')
 
 # Parse the shapefile
-
-base_shapefile = parse_shapefile(shp_path, filter_on)
+base_shapefile = parse_shapefile(shp_path)
 
 # Draw the base map and keep it in a saved variable
 base_maps = []
@@ -554,7 +549,7 @@ if len(maps_to_render) == 1:
         zoom_on = [maps_to_render[0], 'borough']
 
     # we want to render on a single map
-    draw_dict = {'image_size': image_size, 'margins': (), 'filter_on': [],
+    draw_dict = {'image_size': image_size, 'margins': margins, 'filter_on': filter_on,
                  'zoom_on': zoom_on, 'map_type': maps_to_render[0],
                  'title': title, 'base_shapefile': base_shapefile}
     base_map, projection = render_base_map(draw_dict)
@@ -567,7 +562,7 @@ else:
             zoom_on = []
         else:
             zoom_on = [single_map, 'borough']
-        draw_dict = {'image_size': image_size, 'margins': (), 'filter_on': [],
+        draw_dict = {'image_size': image_size, 'margins': margins, 'filter_on': filter_on,
                      'zoom_on': zoom_on, 'map_type': single_map, 'title': title,
                      'base_shapefile': base_shapefile}
 
@@ -576,6 +571,13 @@ else:
 
 # we build the query statement and execute it on the database
 print('Querying the dabase...')
+# we define the render_heat_map_dict
+render_heat_map_dict = {'time_granularity': time_granularity, 'period': period,
+                        'image_size': image_size, 'data_table': data_table,
+                        'lookup_table': lookup_table, 'aggregated_result': aggregated_result,
+                        'title': title, 'filter_query_on_borough': filter_query_on_borough,
+                        'weekdays': None, 'aggregate_period': None}
+
 query_dict = build_query_dict(render_heat_map_dict)
 
 if query_dict['date'] == 'loop_through_period':
@@ -586,12 +588,12 @@ if query_dict['date'] == 'loop_through_period':
     daterange = pd.date_range(period[0],period[1])
     query_dict['date'] = period
 
-query = prepare_ql_query(query_dict)
+query = prepare_sql_query(query_dict)
 query_results = make_sql_query(query, database)
 
 # we process the query results
 outgoing_flow, incoming_flow = process_query_results(query_results,
-                                                              base_shapefile)
+                                                     base_shapefile)
 
 for single_map, base_map, projection in base_maps:
     print('Rendering {}...'.format(single_map))
@@ -599,12 +601,12 @@ for single_map, base_map, projection in base_maps:
         if time_granularity == 'weekdays_vs_weekends':
             file_name = ['NYC', '2018_diff_WD_WE']
         else:
-            ['NYC', '2018']
+            file_name = ['NYC', '2018']
     else:
         if time_granularity == 'weekdays_vs_weekends':
             file_name = ['{}'.format(single_map), '2018_diff_WD_WE']
         else:
-            ['{}'.format(single_map), '2018']
+            file_name = ['{}'.format(single_map), '2018']
 
     print('Rendering {} outgoing flow...'.format(single_map))
     render_maps(outgoing_flow, 'out', base_map, file_name)
@@ -612,4 +614,3 @@ for single_map, base_map, projection in base_maps:
     render_maps(incoming_flow, 'in', base_map, file_name)
 
     print('Chloropleth maps for {} rendered.'.format(single_map))
-

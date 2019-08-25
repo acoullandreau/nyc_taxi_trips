@@ -303,5 +303,7 @@ class ShapeOnMap:
         self.min_bound = min_bound
 
     def fill_in_shape(self, map_to_render):
+        print(map_to_render)
+        print(self.points)
         pts = np.array(self.points, np.int32)
         cv2.fillPoly(map_to_render, [pts], self.color_fill)

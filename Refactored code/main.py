@@ -45,7 +45,7 @@ def build_query_dict(render_animation_dict):
         query_dict['date'] = 'loop_through_period'
 
     # used specifically for the animation logic
-    if time_granularity == 'specific_weekdays' or weekdays != ():
+    if time_granularity == 'specific_weekdays' or weekdays:
         query_dict['specific_weekdays'] = 'on_specific_weekdays'
 
     # used specifically for the animation logic
@@ -159,6 +159,7 @@ def make_video_animation(frames, image_size, map_type):
     else:
         title = 'Animation_{}.avi'.format(map_type)
 
+    image_size = tuple(image_size)
     animation = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'DIVX'), 30, image_size)
     # video title, codec, fps, frame size
 
@@ -184,7 +185,7 @@ def make_sql_query(query, database):
     # ...and store the output
     results = []
     for result in cursor:
-        result.append(result)
+        results.append(list(result))
 
     cursor.close()
 
@@ -196,7 +197,6 @@ def parse_shapefile(shp_path, filter_on):
     base_shapefile.build_shape_dict(base_shapefile.df_sf)
 
     if filter_on:
-        print('Test')
         filter_cond = filter_on[0]
         filter_attr = filter_on[1]
         df_filtered = base_shapefile.filter_shape_to_render(filter_cond, filter_attr)
@@ -310,9 +310,11 @@ def process_query_arg(render_animation_dict):
         # set for the query is multiple dates
 
         daterange = pd.date_range(period[0], period[1])
+
         # we run queries for each date in the daterange specified
         for single_date in daterange:
             date = pd.to_datetime(single_date)
+
             if specific_weekdays == 'on_specific_weekdays':
 
                 # we check if the date of the daterange matches the weekday(s) we target
@@ -410,6 +412,53 @@ def process_query_arg(render_animation_dict):
     return query_results_dict
 
 
+def process_query_results(query_results_dict, single_map, flag):
+
+    # we find the min and max passengers for the whole year
+    min_passenger = 999999999
+    max_passenger = 0
+    for query_date in query_results_dict:
+        temp_min, temp_max = compute_min_max_passengers(query_results_dict[query_date], 2)
+        if temp_min < min_passenger:
+            min_passenger = temp_min
+        if temp_max > max_passenger:
+            max_passenger = temp_max
+
+    if flag is True:
+        # we transform the query_results_dict to use instances of the PointOnMap class
+        for query_date in query_results_dict:
+            query_result = query_results_dict[query_date]
+            for itinerary in query_result:
+                zone_id_origin = Utils.convert_id(itinerary[0])
+                zone_id_destination = Utils.convert_id(itinerary[1])
+                if zone_id_origin == zone_id_destination:
+                    color = (141, 91, 67)
+                else:
+                    color = (135, 162, 34)
+
+                weight = compute_weight(single_map, itinerary[2], max_passenger)
+                itinerary[2] = weight
+
+                shape_origin = base_map.shape_dict[zone_id_origin]
+                coords = shape_origin.center
+                point_to_render = classfile.PointOnMap(coords, weight, color)
+                itinerary[0] = point_to_render
+
+                shape_dest = base_map.shape_dict[zone_id_destination]
+                target_coords = shape_dest.center
+                itinerary[1] = target_coords
+    else:
+        for query_date in query_results_dict:
+            query_result = query_results_dict[query_date]
+            for itinerary in query_result:
+                point_to_render = itinerary[0]
+                weight = compute_weight(single_map, itinerary[2], max_passenger)
+                itinerary[2] = weight
+                point_to_render.weight = weight
+
+    return query_results_dict, min_passenger, max_passenger
+
+
 def render_base_map(draw_dict):
     base_shapefile = draw_dict['base_shapefile']
     image_size = draw_dict['image_size']
@@ -436,7 +485,7 @@ def render_base_map(draw_dict):
         shape.project_shape_coords(projection)
 
     base_map.render_map()
-    base_map.map_file = display_general_information_text(base_map.map_file, map_type, title)
+    display_general_information_text(base_map.map_file, map_type, title)
 
     return base_map, projection
 
@@ -453,26 +502,6 @@ def render_frames(frame_dict):
 
     for query_date in query_results_dict:
         query_result = query_results_dict[query_date]
-        for itinerary in query_result:
-            zone_id_origin = Utils.convert_id_shape(itinerary[0])
-            zone_id_destination = Utils.convert_id_shape(itinerary[1])
-            if zone_id_origin == zone_id_destination:
-                color = (141, 91, 67)
-            else:
-                color = (135, 162, 34)
-
-            weight = compute_weight(single_map, itinerary[2], max_passenger)
-            itinerary[2] = weight
-
-            shape_origin = base_map.shape_dict[zone_id_origin]
-            coords = shape_origin.center
-            point_to_render = classfile.PointOnMap(coords, weight, color)
-            itinerary[0] = point_to_render
-
-            shape_dest = base_map.shape_dict[zone_id_destination]
-            target_coords = shape_dest.center
-            itinerary[1] = target_coords
-
         for frame in range(0, 60):
             map_rendered = base_map.map_file.copy()
             for itinerary in query_result:
@@ -485,7 +514,7 @@ def render_frames(frame_dict):
                     point_to_render.render_point_on_map(map_rendered)
             date_info = (agg_per, query_date)
             display_specific_text_animation(map_rendered, date_info, single_map, min_passenger, max_passenger)
-        frames.append(map_rendered)
+            frames.append(map_rendered)
 
     return frames
 
@@ -504,6 +533,10 @@ else:
     margins = [0, 0, 0, 0]
 
 maps_to_render = conf_data['maps_to_render']
+if 'total' in maps_to_render:
+    idx_total = maps_to_render.index('total')
+    maps_to_render[0], maps_to_render[idx_total] = maps_to_render[idx_total], maps_to_render[0]
+
 filter_on = conf_data['filter_on']
 zoom_on = conf_data['zoom_on']
 title = conf_data['title']
@@ -572,22 +605,30 @@ render_animation_dict['query_dict'] = query_dict
 print('Processing the query results...')
 query_results_dict = process_query_arg(render_animation_dict)
 
-# we find the min and max passengers for the whole year
-min_passenger = 999999999
-max_passenger = 0
-for query_date in query_results_dict:
-    temp_min, temp_max = compute_min_max_passengers(query_results_dict[query_date], 2)
-    if temp_min < min_passenger:
-        min_passenger = temp_min
-    if temp_max > max_passenger:
-        max_passenger = temp_max
-
-frame_dict = {'query_results_dict': query_results_dict,
-              'base_map': base_map, 'min_passenger': min_passenger,
-              'max_passenger': max_passenger, 'agg_per': aggregate_period}
+result_already_processed = False
+flag = True
 
 # we render the animation!
 for single_map, base_map, projection in base_maps:
+    if single_map == 'total':
+        query_results_dict, min_pass, max_pass = process_query_results(query_results_dict,
+                                                                       single_map, flag)
+        result_already_processed = True
+        flag = False
+
+    else:
+        if result_already_processed is False:
+            query_results_dict, min_pass, max_pass = process_query_results(query_results_dict,
+                                                                           single_map, flag)
+            result_already_processed = True
+            flag = False
+        else:
+            query_results_dict, min_pass, max_pass = process_query_results(query_results_dict,
+                                                                           single_map, flag)
+
+    frame_dict = {'query_results_dict': query_results_dict,
+                  'base_map': base_map, 'min_passenger': min_pass,
+                  'max_passenger': max_pass, 'agg_per': aggregate_period}
     print('Rendering {}...'.format(single_map))
     frame_dict['single_map'] = single_map
     frames = render_frames(frame_dict)

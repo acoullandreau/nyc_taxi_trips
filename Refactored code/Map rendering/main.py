@@ -1,6 +1,5 @@
 import cv2
 import json
-import mysql.connector
 import numpy as np
 import pandas as pd
 
@@ -109,16 +108,6 @@ def compute_color(weight, min_passenger, max_passenger):
                 color = compute_color(weight, min_passenger, 0)
 
     return color
-
-
-def compute_min_max_passengers(trips_list, idx_weight):
-
-    min_passenger_itinerary = min(trips_list, key=lambda x: x[idx_weight])
-    max_passenger_itinerary = max(trips_list, key=lambda x: x[idx_weight])
-    max_passenger = max_passenger_itinerary[idx_weight]
-    min_passenger = min_passenger_itinerary[idx_weight]
-
-    return min_passenger, max_passenger
 
 
 def display_general_information_text(image, map_type, title):
@@ -232,29 +221,6 @@ def find_names(zone_shape, base_map):
     # borough_name = df_sf[df_sf.index == zone_id]['borough'].item()
 
     return zone_name
-
-
-def make_sql_query(query, database):
-    # connect to the database
-    db = mysql.connector.connect(
-        host="192.168.1.29",
-        user="root",
-        passwd="dllpsax00",
-        database=database
-        )
-
-    # execute the query...
-    cursor = db.cursor()
-    cursor.execute(query)
-
-    # ...and store the output
-    results = []
-    for result in cursor:
-        results.append(list(result))
-
-    cursor.close()
-
-    return results
 
 
 def parse_shapefile(shp_path):
@@ -490,7 +456,7 @@ def render_single_map(flow_dict, flow_dir, base_map, file_name, zone_shape):
     map_title = '{}_{}_{}_{}_{}'.format(file_name[0], zone_id, zone_name,
                                         flow_dir, file_name[1])
     trips_list = flow_dict[zone_shape]
-    min_passenger, max_passenger = compute_min_max_passengers(trips_list, 1)
+    min_passenger, max_passenger = Utils.compute_min_max_passengers(trips_list, 1)
 
     colors = []
     for linked_zone in trips_list:
@@ -622,7 +588,7 @@ if query_dict['date'] == 'loop_through_period':
     query_dict['date'] = period
 
 query = prepare_sql_query(query_dict)
-query_results = make_sql_query(query, database)
+query_results = Utils.make_sql_query(query, database)
 
 for single_map, base_map, projection in base_maps:
     # we process the query results

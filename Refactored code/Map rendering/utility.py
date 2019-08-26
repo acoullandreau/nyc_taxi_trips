@@ -1,3 +1,4 @@
+import mysql.connector
 
 
 class Utils:
@@ -40,6 +41,16 @@ class Utils:
         return max_bound, min_bound
 
     @staticmethod
+    def compute_min_max_passengers(trips_list, idx_weight):
+
+        min_passenger_itinerary = min(trips_list, key=lambda x: x[idx_weight])
+        max_passenger_itinerary = max(trips_list, key=lambda x: x[idx_weight])
+        max_passenger = max_passenger_itinerary[idx_weight]
+        min_passenger = min_passenger_itinerary[idx_weight]
+
+        return min_passenger, max_passenger
+
+    @staticmethod
     def convert_id(idx, inverse=False):
 
         if inverse is False:
@@ -48,3 +59,26 @@ class Utils:
             idx = idx + 1
 
         return idx
+
+    @staticmethod
+    def make_sql_query(query, database):
+        # connect to the database
+        db = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            passwd="password",
+            database=database
+            )
+
+        # execute the query...
+        cursor = db.cursor()
+        cursor.execute(query)
+
+        # ...and store the output
+        results = []
+        for result in cursor:
+            results.append(list(result))
+
+        cursor.close()
+
+        return results

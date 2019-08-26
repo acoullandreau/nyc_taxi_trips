@@ -1,6 +1,5 @@
 import cv2
 import json
-import mysql.connector
 import pandas as pd
 
 import classfile
@@ -57,16 +56,6 @@ def build_query_dict(render_animation_dict):
         query_dict['specific_weekdays'] = 'weekdays_vs_weekends'
 
     return query_dict
-
-
-def compute_min_max_passengers(trips_list, idx_weight):
-
-    min_passenger_itinerary = min(trips_list, key=lambda x: x[idx_weight])
-    max_passenger_itinerary = max(trips_list, key=lambda x: x[idx_weight])
-    max_passenger = max_passenger_itinerary[idx_weight]
-    min_passenger = min_passenger_itinerary[idx_weight]
-
-    return min_passenger, max_passenger
 
 
 def compute_weight(map_type, weight, max_passenger):
@@ -167,29 +156,6 @@ def make_video_animation(frames, image_size, map_type):
         animation.write(frames[i])
 
     animation.release()
-
-
-def make_sql_query(query, database):
-    # connect to the database
-    db = mysql.connector.connect(
-        host="192.168.1.29",
-        user="root",
-        passwd="dllpsax00",
-        database=database
-        )
-
-    # execute the query...
-    cursor = db.cursor()
-    cursor.execute(query)
-
-    # ...and store the output
-    results = []
-    for result in cursor:
-        results.append(list(result))
-
-    cursor.close()
-
-    return results
 
 
 def parse_shapefile(shp_path):
@@ -316,7 +282,7 @@ def process_query_arg(render_animation_dict):
                     single_date = date.date().strftime('%Y-%m-%d')
                     query_dict['date'] = single_date
                     query = prepare_sql_query(query_dict)
-                    query_results = make_sql_query(query, database)
+                    query_results = Utils.make_sql_query(query, database)
                     query_results_dict[query_dict['date']] = query_results
 
                 else:
@@ -326,7 +292,7 @@ def process_query_arg(render_animation_dict):
                 single_date = date.date().strftime('%Y-%m-%d')
                 query_dict['date'] = single_date
                 query = prepare_sql_query(query_dict)
-                query_results = make_sql_query(query, database)
+                query_results = Utils.make_sql_query(query, database)
                 query_results_dict[query_dict['date']] = query_results
 
     elif aggregate_period is True and query_dict['date'] == 'loop_through_period':
@@ -378,7 +344,7 @@ def process_query_arg(render_animation_dict):
         for interval in all_aggr:
             query_dict['date'] = interval
             query = prepare_sql_query(query_dict)
-            query_results = make_sql_query(query, database)
+            query_results = Utils.make_sql_query(query, database)
             query_results_dict[query_dict['date'][0]] = query_results
 
     else:
@@ -392,7 +358,7 @@ def process_query_arg(render_animation_dict):
 
             if date.dayofweek in weekdays:
                 query = prepare_sql_query(query_dict)
-                query_results = make_sql_query(query, database)
+                query_results = Utils.make_sql_query(query, database)
                 query_results_dict[query_dict['date']] = query_results
 
             else:
@@ -400,7 +366,7 @@ def process_query_arg(render_animation_dict):
 
         else:
             query = prepare_sql_query(query_dict)
-            query_results = make_sql_query(query, database)
+            query_results = Utils.make_sql_query(query, database)
             query_results_dict[query_dict['date']] = query_results
 
     return query_results_dict
@@ -413,7 +379,7 @@ def process_query_results(query_results_dict, map_item):
     min_passenger = 999999999
     max_passenger = 0
     for query_date in query_results_dict:
-        temp_min, temp_max = compute_min_max_passengers(query_results_dict[query_date], 2)
+        temp_min, temp_max = Utils.compute_min_max_passengers(query_results_dict[query_date], 2)
         if temp_min < min_passenger:
             min_passenger = temp_min
         if temp_max > max_passenger:

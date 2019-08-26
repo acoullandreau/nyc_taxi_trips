@@ -1,2 +1,10 @@
-Udacity Reviews
+*.htm
+*.js
+*css*
+*.svg
+*.idea
+*.avi
+*.png
+*.gif
+*pycache*
 taxi_zones

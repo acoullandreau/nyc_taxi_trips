@@ -3,6 +3,7 @@
     "image_size":[1920, 1080],
     "margins":[],
     "maps_to_render":["total", "Manhattan"],
+    "focus_on":[],
     "filter_on":[],
     "zoom_on":[],
     "filter_query_on_borough":false,
@@ -11,7 +12,7 @@
     "data_table":"passenger_count_2018",
     "lookup_table":"taxi_zone_lookup_table",
     "aggregated_result":"count",
-    "weekdays_vs_weekends":false,
-    "period":["2018-01-01", "2018-01-03"]
+    "weekdays_vs_weekends":true,
+    "period":["2018-01-01", "2018-12-31"]
 
 }

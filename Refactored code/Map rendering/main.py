@@ -142,7 +142,7 @@ def display_general_information_text(image, map_type, title):
     else:
         title = title + ' in ' + map_type
 
-    # displays the title of the video
+    # displays the title
     # cv2.putText(image, title, (500, 1050), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
 
@@ -203,14 +203,15 @@ def display_scale_legend(map_image, font, min_pass, max_pass, colors):
         top_bar_y = top_bar_y + 20
 
 
-def display_specific_text(map_image, zone_id, zone_name, min_pass, max_pass, colors):
+def display_specific_text(map_image, zone_id, zone_name, flow_dir, min_pass, max_pass, colors):
 
     # note that these position are based on an image size of [1920, 1080]
     font = cv2.FONT_HERSHEY_SIMPLEX
 
     # display the zone id and name
+    cv2.putText(map_image, '({})'.format(flow_dir), (30, 170), font, 1.3, (221, 221, 221), 1, cv2.LINE_AA)
     cv2.putText(map_image, '{} - '.format(zone_id), (30, 240), font, 1.3, (221, 221, 221), 1, cv2.LINE_AA)
-    cv2.putText(map_image, '{}'.format(zone_name), (170, 240), font, 1.3, (221, 221, 221), 1, cv2.LINE_AA)
+    cv2.putText(map_image, '{}'.format(zone_name), (220, 240), font, 1.3, (221, 221, 221), 1, cv2.LINE_AA)
 
     # displays the legend of the colour code
     cv2.putText(map_image, 'Legend', (30,320), font, 0.9, (221, 221, 221), 1, cv2.LINE_AA)
@@ -399,7 +400,6 @@ def prepare_sql_query(query_dict):
                     FROM {1}\
                     WHERE {2} \
                     GROUP BY pu_id, do_id".format(aggregated_result, data_table, date_statement))
-
     return query
 
 
@@ -414,18 +414,27 @@ def process_query_results(query_results, base_map):
         origin_id = Utils.convert_id(itinerary[0])
         destination_id = Utils.convert_id(itinerary[1])
         weight = itinerary[2]
-        shape_origin = base_map.shape_dict[origin_id]
-        shape_destination = base_map.shape_dict[destination_id]
+        origin_ids = []
+        destination_ids = []
+        # we look only at shapes that are to be rendered
+        if origin_id in base_map.shape_dict or destination_id in base_map.shape_dict:
+            shape_origin = base_map.shape_dict[origin_id]
+            origin_ids.append(origin_id)
+            shape_destination = base_map.shape_dict[destination_id]
+            destination_ids.append(destination_id)
+
         # We build a dictionary of outgoing traffic
-        if origin_id not in out_shape_ids:
-            out_shape_ids.append(origin_id)
-            outgoing_flow[shape_origin] = []
-        outgoing_flow[shape_origin].append((shape_destination, weight))
+        for origin_id in origin_ids:
+            if origin_id not in out_shape_ids:
+                out_shape_ids.append(origin_id)
+                outgoing_flow[shape_origin] = []
+            outgoing_flow[shape_origin].append((shape_destination, weight))
         # We build a dictionary of incoming traffic
-        if destination_id not in in_shape_ids:
-            in_shape_ids.append(destination_id)
-            incoming_flow[shape_destination] = []
-        incoming_flow[shape_destination].append((shape_origin, weight))
+        for destination_id in destination_ids:
+            if destination_id not in in_shape_ids:
+                in_shape_ids.append(destination_id)
+                incoming_flow[shape_destination] = []
+            incoming_flow[shape_destination].append((shape_origin, weight))
 
     return outgoing_flow, incoming_flow
 
@@ -434,6 +443,7 @@ def render_base_map(draw_dict):
     base_shapefile = draw_dict['base_shapefile']
     image_size = draw_dict['image_size']
     margins = draw_dict['margins']
+    filter_on = draw_dict['filter_on']
     zoom_on = draw_dict['zoom_on']
     map_type = draw_dict['map_type']
     title = draw_dict['title']
@@ -472,41 +482,51 @@ def render_base_map(draw_dict):
     return base_map, projection
 
 
-def render_maps(flow_dict, flow_dir, base_map, file_name):
+def render_single_map(flow_dict, flow_dir, base_map, file_name, zone_shape):
 
-    for zone_shape in flow_dict:
-        map_rendered = base_map.map_file.copy()
-        zone_name = find_names(zone_shape, base_map)
-        zone_id = Utils.convert_id(zone_shape.shape_id, inverse=True)
-        map_title = '{}_{}_{}_{}_{}'.format(file_name[0], zone_id, zone_name,
-                                            flow_dir, file_name[1])
-        trips_list = flow_dict[zone_shape]
-        min_passenger, max_passenger = compute_min_max_passengers(trips_list, 1)
+    map_rendered = base_map.map_file.copy()
+    zone_name = find_names(zone_shape, base_map)
+    zone_id = Utils.convert_id(zone_shape.shape_id, inverse=True)
+    map_title = '{}_{}_{}_{}_{}'.format(file_name[0], zone_id, zone_name,
+                                        flow_dir, file_name[1])
+    trips_list = flow_dict[zone_shape]
+    min_passenger, max_passenger = compute_min_max_passengers(trips_list, 1)
 
-        colors = []
-        for linked_zone in trips_list:
-            shape_to_color = linked_zone[0]
-            if shape_to_color.shape_id != zone_shape.shape_id:
-                weight = linked_zone[1]
-                render_color = compute_color(weight, min_passenger, max_passenger)
-                shape_to_color.color_fill = render_color
-                if render_color not in colors:
-                    colors.append(render_color)
-                shape_to_color.fill_in_shape(map_rendered)
-                # we draw again the boundaries of the shape after filling it in
-                pts = np.array(shape_to_color.points, np.int32)
-                cv2.polylines(map_rendered, [pts], True, (255, 255, 255), 1, cv2.LINE_AA)
+    colors = []
+    for linked_zone in trips_list:
+        shape_to_color = linked_zone[0]
+        if shape_to_color.shape_id != zone_shape.shape_id:
+            weight = linked_zone[1]
+            render_color = compute_color(weight, min_passenger, max_passenger)
+            shape_to_color.color_fill = render_color
+            if render_color not in colors:
+                colors.append(render_color)
+            shape_to_color.fill_in_shape(map_rendered)
+            # we draw again the boundaries of the shape after filling it in
+            pts = np.array(shape_to_color.points, np.int32)
+            cv2.polylines(map_rendered, [pts], True, (255, 255, 255), 1, cv2.LINE_AA)
 
-        # outline the focused shape
-        zone_shape.color_line = [95, 240, 255]
-        zone_shape.line_thick = 3
-        pts = np.array(zone_shape.points, np.int32)
-        cv2.polylines(map_rendered, [pts], True, zone_shape.color_line, zone_shape.line_thick, cv2.LINE_AA)
-        #display the legend
-        display_specific_text(map_rendered, zone_id, zone_name, min_passenger, max_passenger, colors)
+    # outline the focused shape
+    zone_shape.color_line = [95, 240, 255]
+    zone_shape.line_thick = 3
+    pts = np.array(zone_shape.points, np.int32)
+    cv2.polylines(map_rendered, [pts], True, zone_shape.color_line, zone_shape.line_thick, cv2.LINE_AA)
+    # display the legend
+    display_specific_text(map_rendered, zone_id, zone_name, flow_dir, min_passenger, max_passenger, colors)
 
-        #save the image
-        cv2.imwrite(('{}.png').format(map_title), map_rendered)
+    # save the image
+    cv2.imwrite(('{}.png').format(map_title), map_rendered)
+
+
+def render_maps(flow_dict, flow_dir, base_map, file_name, focus_dict):
+
+    if focus_dict != {}:
+        for zone_shape in flow_dict:
+            if zone_shape.shape_id in focus_dict:
+                render_single_map(flow_dict, flow_dir, base_map, file_name, zone_shape)
+    else:
+        for zone_shape in flow_dict:
+            render_single_map(flow_dict, flow_dir, base_map, file_name, zone_shape)
 
 
 # Main flow of the script
@@ -525,6 +545,7 @@ else:
 maps_to_render = conf_data['maps_to_render']
 filter_on = conf_data['filter_on']
 zoom_on = conf_data['zoom_on']
+focus_on = conf_data['focus_on']
 title = conf_data['title']
 database = conf_data['db']
 data_table = conf_data['data_table']
@@ -543,6 +564,13 @@ print('Building the base map...')
 
 # Parse the shapefile
 base_shapefile = parse_shapefile(shp_path)
+
+focus_dict = {}
+if focus_on:
+    focus_cond = focus_on[0]
+    focus_attr = focus_on[1]
+    focus_df = base_shapefile.filter_shape_to_render(focus_cond, focus_attr)
+    focus_dict = base_shapefile.build_shape_dict(focus_df)
 
 # Draw the base map and keep it in a saved variable
 base_maps = []
@@ -568,8 +596,8 @@ else:
         else:
             zoom_on = [single_map, 'borough']
         draw_dict = {'image_size': image_size, 'margins': margins, 'filter_on': filter_on,
-                     'zoom_on': zoom_on, 'map_type': single_map, 'title': title,
-                     'base_shapefile': base_shapefile}
+                     'zoom_on': zoom_on, 'map_type': single_map,
+                     'title': title, 'base_shapefile': base_shapefile}
 
         base_map, projection = render_base_map(draw_dict)
         base_maps.append((single_map, base_map, projection))
@@ -581,7 +609,7 @@ render_heat_map_dict = {'time_granularity': time_granularity, 'period': period,
                         'image_size': image_size, 'data_table': data_table,
                         'lookup_table': lookup_table, 'aggregated_result': aggregated_result,
                         'title': title, 'filter_query_on_borough': filter_query_on_borough,
-                        'weekdays': None, 'aggregate_period': None}
+                        'weekdays': [], 'aggregate_period': False}
 
 query_dict = build_query_dict(render_heat_map_dict)
 
@@ -613,8 +641,8 @@ for single_map, base_map, projection in base_maps:
             file_name = ['{}'.format(single_map), '2018']
 
     print('Rendering {} outgoing flow...'.format(single_map))
-    render_maps(outgoing_flow, 'out', base_map, file_name)
+    render_maps(outgoing_flow, 'out', base_map, file_name, focus_dict)
     print('Rendering {} incoming flow...'.format(single_map))
-    render_maps(incoming_flow, 'in', base_map, file_name)
+    render_maps(incoming_flow, 'in', base_map, file_name, focus_dict)
 
     print('Chloropleth maps for {} rendered.'.format(single_map))

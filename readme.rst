@@ -2,6 +2,10 @@
 Taxi rides analysis - code documentation
 =========================================
 
+Update: Aug, 26th 2019 - refactoring of the code using OOP
+Update: Aug, 26th 2019 - added features to render the chloropleth map (choose which maps to render)
+
+Note: the classes defined in classfile and utility are also used in the python package geo_rendering.
 
 -----------------------
 Purpose of this project
@@ -21,21 +25,24 @@ Purpose of this project
 
 In this repository, you will find:
 
-- A Jupyter notebook (Taxi rides analysis) exposing the first approach I took, using static visualisations
-- A second Jupyter notebook (Taxi rides analysis II) with the second approach using a database and OpenCV to render animations and heat maps
-- Some sections of the few animations that were generated (using arguments provided in the second notebook)
-- A few maps from all heat maps generated (using as well arguments provided in the second notebook)
-- A code flow graph to expose the connections of the functions for the animation rendering
-- A code flow graph to expose the connections of the functions for the heat map rendering
+- The initial code folder:
+	- A Jupyter notebook (Taxi rides analysis) exposing the first approach I took, using static visualisations
+	- A second Jupyter notebook (Taxi rides analysis II) with the second approach using a database and OpenCV to render animations and heat maps
+	- Some sections of the few animations that were generated (using arguments provided in the second notebook)
+	- A few maps from all heat maps generated (using as well arguments provided in the second notebook)
+	- A code flow graph to expose the connections of the functions for the animation rendering
+	- A code flow graph to expose the connections of the functions for the heat map rendering
+- The refactored code folder, divided into animation and map rendering subfolders, each containing:
+	- a main.py script
+	- a classfile.py and a utility.py class files
+	- a conf.json file
+	- a requirements.txt file
 - This readme file containing documentation of the functions, as well as the installation requisites and sources
 
 
-Note that two blog posts were written to expose the conclusions and the process of the analysis, and can be found here:
+Note that blog posts were written to expose the conclusions and the process of the analysis, and can be found at https://medium.com/@mozart38
 
-- https://medium.com/@mozart38/where-do-people-go-in-nyc-the-recipe-of-an-analysis-a307499013a6
-- https://medium.com/@mozart38/where-do-people-go-in-nyc-5-facts-and-observations-of-2018-57308d26d7c8
-
-Important note: in the code and documentation below, we talk about a heat map, while the representation we use is actually called a **choropleth map**.
+Important note: in the code and documentation below, we talk about a heat map, while the representation we use is actually called a **chloropleth map**.
 
 
 -----------------------
@@ -49,14 +56,15 @@ Installation requisites
 
 The following libraries were used extensively in the code:
 
+- cmapy 0.5
+- jsonlib 1.6.1
+- matplotlib 3.1.0
+- mysql-connector-python 8.0.16
 - numpy 1.16.4
 - pandas 0.25.0
-- shapefile (pyshp) 2.1.0
 - pyproj 1.9.6
-- matplotlib 3.1.0
 - OpenCV 4.1.0
-- mysql-connector-python 8.0.16
-- cmapy 0.5
+- shapefile (pyshp) 2.1.0
 
 
 
@@ -66,7 +74,8 @@ Code documentation
 
 This section will focus on the second approach (database and animation or heat map rendering), as it is more complex and easier to reuse. 
 The code of the first approach (using matplotlib and loading the data as a dataframe into the notebook) is already documented in the first notebook.
-Note that the process of switching from one approach to the other is documented in this blog post : XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+Note that the process of switching from one approach to the other is documented in this blog post : 
+https://medium.com/@mozart38/where-do-people-go-in-nyc-the-recipe-of-an-analysis-a307499013a6
 
 
 Database set up
@@ -227,8 +236,8 @@ Here is the query:
 .. code:: sql
 
 
-The flow of the code - animation rendering
-------------------------------------------
+The flow of the code (initial code) - animation rendering
+---------------------------------------------------------
 
 | First of all, the script takes as an input a dictionary with the set of parameters used to determine what to render. The details on what this dictionary should contain is **provided in the next sub-section**.
 | All arguments are used by the script (make_flow_animation) to call the functions that will perform the rendering operations.
@@ -299,8 +308,8 @@ This function (render_all_frames) takes care of:
 | Note that other support functions are used and not mentioned here but included in the graph and the documentation below.
  
 
-The flow of the code - chloropleth map rendering
-------------------------------------------
+The flow of the code (initial code) - chloropleth map rendering
+---------------------------------------------------------------
 
 This function, overall, will follow pretty much the same flow, to the exception that it is not as flexible regarding the maps we render - by default, we will render all of them. Which means that upon lauching the script, we will see as an output:
 
@@ -374,8 +383,8 @@ Note that other support functions are used and not mentioned here but included i
 
 
 
-Main script input
------------------
+Main script input (initial code)
+--------------------------------
 
 **To render animations**
 
@@ -438,6 +447,24 @@ Arguments:
 filter_query_on_borough: whether we want to execute the query filtering on a borough, or if we want the results for the whole city
 - title: the title to display on the heat map
 
+
+Comments on the refactored version of the code
+----------------------------------------------
+
+The process is almost the same for the refactored code, to the exception of three facts:
+- the input is now performed using a conf.json file (example provided in the repo)
+- classes are used for shapefiles, maps, shapes, and points
+- filter_on, zoom_on, focus_on are new parameters:
+	- they are used respectively to
+		- filter_on : define which shapes should be rendered on the base map
+		- zoom_on : define what the map should be centered on
+		- focus_on : define for which shapes results should be rendered for
+	- there structure is in the form [cond, attr], where:
+		- cond is the condition to match, that can be either a string or a n array
+		- attr is the parameter that should match the condition
+		- for example zoom_on = ["Manhattan", "borough"], where borough is a column of the dataframe obtained from the shapefile and Manhattan the value to match
+		- or other example focus_on = [["Alphabet City", "Newark Airport"], "zone"]
+	- They accept multiple condition values but a single attribute at a time
 
 
 Focus on some choices and decisions made
@@ -1088,8 +1115,9 @@ Further work and improvements
 
 Several paths could be followed to improve the code and the analysis, for example:
 
-- refactoring the code to use classes (OOP)
-- make the heat map function more flexible (choose which maps to render)
+[DONE] refactoring the code to use classes (OOP)
+[DONE] make the heat map function more flexible (choose which maps to render)
+- improve the rendering of the shapes on the base map (example of this code : https://chrishavlin.com/2016/11/16/shapefiles-tutorial/)
 - represent the variation over time withing one day
 - comparing the flow of passengers with the public transportation network, and try to find patterns
 - conduct the analysis on a larger dataset, including previous years, or other taxi types (green taxis, FHV)

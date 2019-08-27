@@ -1,6 +1,5 @@
 ###### Requirements without Version Specifiers ######
 
-jsonlib
 mysql-connector-python
 numpy
 pandas

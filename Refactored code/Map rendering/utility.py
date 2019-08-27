@@ -15,6 +15,8 @@ class Utils:
         x_mean = x_sum/len(points)
         y_mean = y_sum/len(points)
 
+        print(points)
+        print(x_mean, y_mean)
         return x_mean, y_mean
 
     @staticmethod
